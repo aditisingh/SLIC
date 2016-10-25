@@ -99,6 +99,7 @@ end
 
 %distance calculation
 D=zeros(img_ht, img_wd, size(unique(labelled),1)); %distance for each pixel from each centre
+dxy=zeros(img_ht,img_wd, size(unique(labelled),1));
 
 for i=1:size(unique(labelled),1)
     for j=1:img_ht
@@ -128,13 +129,29 @@ for i=1:size(unique(labelled),1)
             d23=(img23(j,k)-img23(C(i,2),C(i,1))).^2;
             d24=(img24(j,k)-img24(C(i,2),C(i,1))).^2;  
             
-            dxy=((k-C(i,1)).^2+(j-C(i,2)).^2);
+            dxy(j,k,i)=((k-C(i,1)).^2+(j-C(i,2)).^2);
             
             D(j,k,i)=sqrt(double(d1)*(lambda_1).^2 + double(d2)*(lambda_2).^2 + double(d3)*(lambda_3).^2 + double(d4)*(lambda_4).^2 + double(d5)*(lambda_5).^2 ... 
                 + double(d6)*(lambda_6).^2 + double(d7)*(lambda_7).^2 + double(d8)*(lambda_8).^2 + double(d9)*(lambda_9).^2 + double(d10)*(lambda_10).^2 ...
                 + double(d11)*(lambda_11).^2 + double(d12)*(lambda_12).^2 + double(d13)*(lambda_13).^2 + double(d14)*(lambda_14).^2 + double(d15)*(lambda_15).^2 ...
                 + double(d16)*(lambda_16).^2 + double(d17)*(lambda_17).^2 + double(d18)*(lambda_18).^2 + double(d19)*(lambda_19).^2 + double(d20)*(lambda_20).^2 ...
-                + double(d21)*(lambda_21).^2 + double(d22)*(lambda_22).^2 + double(d23)*(lambda_23).^2 + double(d24)*(lambda_24).^2 );%+ double(dxy)*((m/S).^2));
+                + double(d21)*(lambda_21).^2 + double(d22)*(lambda_22).^2 + double(d23)*(lambda_23).^2 + double(d24)*(lambda_24).^2 + double(dxy(j,k,i)*((m/S).^2)));
         end
     end
 end
+
+%assign pixels
+for j=1:img_ht
+    for k=1:img_wd
+        %find the pixels in range 2S of the pixel
+        idx=find(sqrt(dxy(j,k,:))<=S);
+        %find lowest weight
+        if(size(find(D(j,k,idx)==min(D(j,k,idx))))==1)
+            labelled(j,k)=find(D(j,k,idx)==min(D(j,k,idx)));
+        else
+            vals=find(D(j,k,idx)==min(D(j,k,idx)));
+            labelled(j,k)=idx(vals(1));   %allocate to anyone %think more about this
+        end
+    end
+end
+            
