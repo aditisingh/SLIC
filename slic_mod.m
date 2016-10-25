@@ -76,12 +76,13 @@ img24=stack.s(24).image;
 %initial labelling
 for i=1:S:img_wd
     for j=1:S:img_ht
-        if(j+S-1<=img_ht && i+S-1<=img_wd)
-            labelled(j:j+S-1,i:i+S-1)=count;
-            count=count+1;
-        end
+        labelled(j:j+S-1,i:i+S-1)=count;
+        count=count+1;
     end
 end
+
+%fixing labelled matrix 
+labelled=labelled(1:img_ht, 1:img_wd);
 
 %get initial cluster centers
 C=zeros(size(unique(labelled),1),2);
@@ -92,7 +93,7 @@ for i=1:size(unique(labelled),1)
     C(i,1)=x; C(i,2)=y;
     
     %correct centre in 3X3 neighbourhood
-   [C(i,1),C(i,2)]=correct_centre(C(i,1),C(i,2),labelled);
+  [C(i,1),C(i,2)]=correct_centre(C(i,1),C(i,2),labelled);
         
 end
 
