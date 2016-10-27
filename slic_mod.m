@@ -61,26 +61,43 @@ end
 labelled=labelled(1:img_ht, 1:img_wd);
 
 %get initial cluster centers
-C=zeros(size(unique(labelled),1),2);
+C_curr=zeros(size(unique(labelled),1),2);
 
 
 for i=1:size(unique(labelled),1)
-    [x,y]=initial_centre(labelled,i+1-min(min(labelled)));
-    C(i,1)=x; C(i,2)=y;
+    [x,y]=initial_centre(labelled,labelled(i+1-min(min(labelled))));
+    C_curr(i,1)=x; C_curr(i,2)=y;
     
     %correct centre in 3X3 neighbourhood
-  [C(i,1),C(i,2)]=correct_centre(C(i,1),C(i,2),labelled);
+  [C_curr(i,1),C_curr(i,2)]=correct_centre(C_curr(i,1),C_curr(i,2),labelled);
         
 end
 
-%distance calculation
+threshold=100;
+E=threshold;
 
+while E>=threshold
+    C_prev=C_curr;
+    %distance calculation
 
- [D, dxy] = dist_calc(labelled,m, S, C, stack, lambda_1, lambda_2, lambda_3, lambda_4, lambda_5, lambda_6, lambda_7, lambda_8, lambda_9, lambda_10, ...
+    [D, dxy] = dist_calc(labelled,m, S, C_curr, stack, lambda_1, lambda_2, lambda_3, lambda_4, lambda_5, lambda_6, lambda_7, lambda_8, lambda_9, lambda_10, ...
     lambda_11, lambda_12, lambda_13, lambda_14, lambda_15, lambda_16, lambda_17, lambda_18, lambda_19, lambda_20, lambda_21, lambda_22, lambda_23, lambda_24);
 
+    %assign pixels
+    labelled= pixel_assignment(img_ht, img_wd, S, labelled, D, dxy, C_curr);
+    
+    C_curr=zeros(size(unique(labelled),1),2);
 
-%assign pixels
-labelled= pixel_assignment(img_ht, img_wd, S, labelled, D, dxy);
-
+    %compute new centers
+    for i=1:size(unique(labelled),1)
+        [x,y]=initial_centre(labelled,labelled(i+1-min(min(labelled))));
+        C_curr(i,1)=x; C_curr(i,2)=y;
+        
+        %correct centre in 3X3 neighbourhood
+        [C_curr(i,1),C_curr(i,2)]=correct_centre(C_curr(i,1),C_curr(i,2),labelled);
+    end
+    
+    %error calculation
+    E=residual_err(C_curr,C_prev)
+end
         

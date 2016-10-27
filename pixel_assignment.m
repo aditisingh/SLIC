@@ -1,15 +1,11 @@
-function [labelled] = pixel_assignment(img_ht, img_wd, S, labelled, D, dxy)
+function [labelled] = pixel_assignment(img_ht, img_wd, S, labelled, D, dxy, C_curr)
 
-for j=1:img_ht
-    for k=1:img_wd
-        %find the pixels in range 2S of the pixel
-        idx=find(sqrt(dxy(j,k,:))<=S);
-        %find lowest weight
-        if(size(find(D(j,k,idx)==min(D(j,k,idx))))==1)
-            labelled(j,k)=find(D(j,k,idx)==min(D(j,k,idx)));
-        else
-            vals=find(D(j,k,idx)==min(D(j,k,idx)));
-            labelled(j,k)=idx(vals(1));   %allocate to anyone %think more about this
+for i=1:size(unique(labelled),1)
+    for j=max(C_curr(i,2)-S,1):min(C_curr(i,2)+S,img_ht)      %y_coord
+        for k=max(C_curr(i,1)-S,1):min(C_curr(i,1)+S,img_wd)  %x-coord
+            if D(j,k,i)==min(D(j,k,:))
+                labelled(j,k)=i;
+            end
         end
     end
 end
