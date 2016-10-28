@@ -2,7 +2,7 @@ clc;
 clear all; 
 close all;
 
-%READ MULTIDIMENSIONAL STACK
+%READ MULTICHANNEL STACK
 stack=load('stack.mat');
 
 img1=stack.s.image;
@@ -54,7 +54,7 @@ for i=1:S:img_wd
     for j=1:S:img_ht
         labelled(j:j+S-1,i:i+S-1)=count;
         count=count+1;
-    end
+        endS
 end
 
 %fixing labelled matrix 
@@ -63,9 +63,9 @@ labelled=labelled(1:img_ht, 1:img_wd);
 %get initial cluster centers
 C_curr=zeros(size(unique(labelled),1),2);
 
-
-for i=1:size(unique(labelled),1)
-    [x,y]=initial_centre(labelled,labelled(i+1-min(min(labelled))));
+vals=unique(labelled);
+for i=1:size(vals,1)
+    [x,y]=initial_centre(labelled,vals(i+1-min(min(labelled))));
     C_curr(i,1)=x; C_curr(i,2)=y;
     
     %correct centre in 3X3 neighbourhood
@@ -73,8 +73,9 @@ for i=1:size(unique(labelled),1)
         
 end
 
-threshold=100;
+threshold=1;
 E=threshold;
+err=[];
 
 while E>=threshold
     C_prev=C_curr;
@@ -89,8 +90,9 @@ while E>=threshold
     C_curr=zeros(size(unique(labelled),1),2);
 
     %compute new centers
-    for i=1:size(unique(labelled),1)
-        [x,y]=initial_centre(labelled,labelled(i+1-min(min(labelled))));
+    vals=unique(labelled);
+    for i=1:size(vals,1)
+        [x,y]=initial_centre(labelled,vals(i+1-min(min(labelled))));
         C_curr(i,1)=x; C_curr(i,2)=y;
         
         %correct centre in 3X3 neighbourhood
@@ -98,6 +100,7 @@ while E>=threshold
     end
     
     %error calculation
-    E=residual_err(C_curr,C_prev)
+   	E = residual_error_calc(C_curr, C_prev)
+    err =[err; E]
 end
         
