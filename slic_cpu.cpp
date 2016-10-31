@@ -207,9 +207,47 @@ int main(int argc, char* argv[])
 	//XYZ TO CIE-L*ab
 	pixel_XYZ* Pixel_LAB=XYZ_LAB(Pixel_XYZ, img_ht, img_wd);
 
+	img_wd=9; img_ht=5;
+	int N = img_wd*img_ht; //number of pixels
+	int K = 3000; //number of superpixels
+	K=10;
+	//size of each superpixel
+	int S = floor(sqrt(N/K));
+	cout<<"S= "<<S<<endl;
+	int m = 10; //compactness control constant
+
+	//labelling matrix
+	int *label_matrix = (int*)malloc(N*sizeof(int));
+
+	//initial labelling: CHECK THIS
+	int count=1;
+	for(int i=0; i<img_wd; i=i+S)
+	{
+		for(int j=0; j<img_ht; j=j+S)
+		{
+			for(int x=i;x<S+i;x++)
+			{
+				for(int y=j;y<S+j;y++)
+				{	int idx=y*img_wd+x;
+					if(idx<N)
+						label_matrix[idx]=count;
+						cout<<label_matrix[idx]<<" ";
+						if(label_matrix[idx]==0)
+							cout<<i<<" "<<j<<" ";
+				}
+			}		
+			count++;
+			cout<<"  "<<endl;
+		}
+		cout<<endl;
+	}
+
+	//checking the label as a 2D 
+	// for (int i=0;i<K;i++)
+		// cout<<label_matrix[i]<<" "<<label_matrix;
 
 	//OUTPUT STORAGE
-	ofstream ofs;
+	/*ofstream ofs;
 	ofs.open("output.ppm", ofstream::out);
 	ofs<<"P6\n"<<img_wd<<" "<<img_ht<<"\n"<<max_val<<"\n";
 
@@ -219,6 +257,6 @@ int main(int argc, char* argv[])
 	}
 
 	ofs.close();
-
+*/
 	return 0;
 }
