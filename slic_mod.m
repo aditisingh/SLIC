@@ -47,14 +47,14 @@ lambda_24=1;%weight of P4113_C8_: TomatoLectin
 m=10; %compactness control constant
 
 count=1;
-
+idx=randperm(K+ceil(img_ht/S)+ceil(img_wd/S));
 
 %initial labelling
 for i=1:S:img_wd
     for j=1:S:img_ht
-        labelled(j:j+S-1,i:i+S-1)=count;
+        labelled(j:j+S-1,i:i+S-1)=idx(count);
         count=count+1;
-        endS
+    end
 end
 
 %fixing labelled matrix 
@@ -73,11 +73,13 @@ for i=1:size(vals,1)
         
 end
 
+num=10;
+cnt=1;
 threshold=1;
 E=threshold;
 err=[];
 
-while E>=threshold
+while cnt<=num%E>=threshold
     C_prev=C_curr;
     %distance calculation
 
@@ -102,5 +104,8 @@ while E>=threshold
     %error calculation
    	E = residual_error_calc(C_curr, C_prev)
     err =[err; E]
+    cnt=cnt+1;
 end
-        
+
+rgb=label2rgb(labelled);
+imshow(rgb); 
