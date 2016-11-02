@@ -74,13 +74,13 @@ for i=1:size(vals,1)
         
 end
 
-num=10;
+num=30;
 cnt=1;
-threshold=1;
+threshold=0.05;
 E=threshold;
 err=[];
 
-while cnt<=num%E>=threshold
+while E>=threshold
     C_prev=C_curr;
     %distance calculation
 
