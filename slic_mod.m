@@ -114,3 +114,9 @@ rgb=label2rgb(labelled);
 imshow(rgb); 
 imwrite(rgb,'labelled.png');
 save('labelled.mat',rgb);
+for lbl=1:nlabels
+currenObject=(labelled==lbl);
+labelled(imerode(currenObject,strel('disk',1)))=0;
+end
+rgb=label2rgb(labelled);
+imshow(rgb); 
