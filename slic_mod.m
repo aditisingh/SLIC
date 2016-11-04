@@ -8,6 +8,9 @@ stack=load('stack.mat');
 img1=stack.s.image;
 [img_ht,img_wd]=size(img1);
 
+img_ht=floor(img_ht/4);
+img_wd=floor(img_wd/4);
+
 N=img_ht*img_wd;    %number of pixels
 
 prompt='How many superpixels?';
@@ -48,7 +51,7 @@ lambda_24=1/4387.4;%weight of P4113_C8_: TomatoLectin
 m=10; %compactness control constant
 
 count=1;
-idx=randperm(K+ceil(img_ht/S)+ceil(img_wd/S));
+idx=randperm(ceil(img_ht/S)*ceil(img_wd/S));
 
 %initial labelling
 for i=1:S:img_wd
@@ -58,7 +61,7 @@ for i=1:S:img_wd
     end
 end
 
-%fixing labelled matrix 
+%fixing labelled matrix     
 labelled=labelled(1:img_ht, 1:img_wd);
 
 %get initial cluster centers
@@ -70,7 +73,7 @@ for i=1:size(vals,1)
     C_curr(i,1)=x; C_curr(i,2)=y;
     
     %correct centre in 3X3 neighbourhood
-  [C_curr(i,1),C_curr(i,2)]=correct_centre(C_curr(i,1),C_curr(i,2),labelled);
+  [C_curr(i,1),C_curr(i,2)]=correct_centre(C_curr(i,1),C_curr(i,2),labelled,img_ht,img_wd);
         
 end
 
@@ -80,7 +83,7 @@ threshold=0.05;
 E=threshold;
 err=[];
 
-while E>=threshold
+while cnt<=num%E>=threshold
     C_prev=C_curr;
     %distance calculation
 
@@ -97,16 +100,17 @@ while E>=threshold
     for i=1:size(vals,1)
         [x,y]=initial_centre(labelled,vals(i+1-min(min(labelled))));
         C_curr(i,1)=x; C_curr(i,2)=y;
-        
         %correct centre in 3X3 neighbourhood
-        [C_curr(i,1),C_curr(i,2)]=correct_centre(C_curr(i,1),C_curr(i,2),labelled);
+        [C_curr(i,1),C_curr(i,2)]=correct_centre(C_curr(i,1),C_curr(i,2),labelled,img_ht, img_wd);
     end
     
     %error calculation
-   	E = residual_error_calc(C_curr, C_prev)
-    err =[err; E]
+   	%E = residual_error_calc(C_curr, C_prev)
+    %err =[err; E]
     cnt=cnt+1;
 end
 
 rgb=label2rgb(labelled);
 imshow(rgb); 
+imwrite(rgb,'labelled.png');
+save('labelled.mat',rgb);

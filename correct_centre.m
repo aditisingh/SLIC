@@ -1,4 +1,4 @@
-function [x1, y1] = correct_centre(x_c,y_c, labelled)
+function [x1, y1] = correct_centre(x_c,y_c, labelled,img_ht, img_wd)
 %gradient kernels
 h1=[ 0 0 0; -1 0 1; 0 0 0];
 h2=[ 0 -1 0 ; 0 0 0;0 1 0];
@@ -7,8 +7,9 @@ h2=[ 0 -1 0 ; 0 0 0;0 1 0];
 G1=conv2(labelled,h1);
 G2=conv2(labelled,h2);
 
-G1_ngbr=G1(y_c-1:y_c+1,x_c-1:x_c+1);
-G2_ngbr=G2(y_c-1:y_c+1,x_c-1:x_c+1);
+
+G1_ngbr=G1(max(y_c-1,1):min(y_c+1,img_ht),max(x_c-1,1):min(x_c+1,img_wd));
+G2_ngbr=G2(max(y_c-1,1):min(y_c+1,img_ht),max(x_c-1,1):min(x_c+1,img_wd));
     
 G=G1_ngbr.^2+G2_ngbr.^2;
     
