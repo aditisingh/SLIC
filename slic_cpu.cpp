@@ -7,6 +7,8 @@
 #include <math.h>
 #include <time.h>
 #include <ctime>
+#include <vector>
+#include <algorithm>
 
 using namespace std;
 
@@ -24,6 +26,17 @@ struct pixel_XYZ
 	float z;
 };
 
+struct point
+{	
+	int x;
+	int y;
+};
+
+/*point initial_centre(int* label, val)
+{
+	
+}
+*/
 pixel_XYZ* RGB_XYZ(pixel_RGB* img ,int ht ,int wd)
 {	
 	pixel_XYZ *XYZ=(pixel_XYZ*)(malloc(ht*wd*sizeof(pixel_XYZ)));
@@ -119,10 +132,8 @@ int main(int argc, char* argv[])
 	time_t start=time(NULL);
 	if(argc != 2) //there should be three arguments
 	return 1; //exit and return an error
-	
 
 	//READING FILE
-	//reading the PPM file line by line
 	
 	ifstream infile;
 	infile.open(argv[1]);
@@ -206,57 +217,69 @@ int main(int argc, char* argv[])
 	
 	//XYZ TO CIE-L*ab
 	pixel_XYZ* Pixel_LAB=XYZ_LAB(Pixel_XYZ, img_ht, img_wd);
+	
+	//IMPLEMENTING SLIC ALGORITHM
+	int N = img_ht*img_wd;	//number of pixels in the images
+	int K = 4000;		//number of superpixels desired
 
-	img_wd=9; img_ht=5;
-	int N = img_wd*img_ht; //number of pixels
-	int K = 3000; //number of superpixels
-	K=10;
-	//size of each superpixel
-	int S = floor(sqrt(N/K));
-	cout<<"S= "<<S<<endl;
-	int m = 10; //compactness control constant
+	int S= floor(sqrt(N/K));//size of each superpixel
+	float m= 10; 		//compactness control constant
+	
+	int k1=ceil(img_ht/S)*ceil(img_wd/S);
+	//initial labelling
+	int* labelled_ini = (int*)malloc((S+img_ht)*(S+img_wd)*sizeof(int));	//row major wise storing the labels
+	int count=0;
 
-	//labelling matrix
-	int *label_matrix = (int*)malloc(N*sizeof(int));
+	vector<int> label_vector;
+	
+	for(int i=1;i<=ceil(img_ht/S)*ceil(img_wd/S);i++)
+		label_vector.push_back(i);
+	
+	random_shuffle(label_vector.begin(),label_vector.end());
+	
 
-	//initial labelling: CHECK THIS
-	int count=1;
-	for(int i=0; i<img_wd; i=i+S)
+	for(int i=0; i<img_wd;i=i+S)
 	{
-		for(int j=0; j<img_ht; j=j+S)
+	    for(int j=0; j<img_ht;j=j+S)
 		{
-			for(int x=i;x<S+i;x++)
-			{
-				for(int y=j;y<S+j;y++)
-				{	int idx=y*img_wd+x;
-					if(idx<N)
-						label_matrix[idx]=count;
-						cout<<label_matrix[idx]<<" ";
-						if(label_matrix[idx]==0)
-							cout<<i<<" "<<j<<" ";
+		for(vector<int>::iterator it=label_vector.begin();it!=label_vector.end();++it)
+		{
+			for(int x=i;x<i+S;x++)
+				{
+				for(int y=j;y<j+S;y++)
+					{
+					int idx=x*img_wd+y;
+					labelled_ini[idx]=*it;		
+					}
 				}
-			}		
-			count++;
-			cout<<"  "<<endl;
+			}
 		}
-		cout<<endl;
 	}
+	
+	//for(int i=0; i<N;i++)
+	//	cout<<labelled_ini[i]<<" ";
+	
+	//get initial cluster centers
+	point* centers_curr=(point*)malloc(k1*sizeof(point));
 
-	//checking the label as a 2D 
-	// for (int i=0;i<K;i++)
-		// cout<<label_matrix[i]<<" "<<label_matrix;
-
+	int * p;
+	p=find(labelled_ini, labelled_ini+k1,30);
+	while(p)
+	{
+	cout<<*p<<endl;
+	p=find(labelled_ini, labelled_ini+k1,30);
+	}
 	//OUTPUT STORAGE
-	/*ofstream ofs;
+	ofstream ofs;
 	ofs.open("output.ppm", ofstream::out);
 	ofs<<"P6\n"<<img_wd<<" "<<img_ht<<"\n"<<max_val<<"\n";
 
 	for(int j=0; j <img_ht*img_wd;j++)
 	{
-		ofs<<Pixel_LAB[j].x<<Pixel_LAB[j].y<<Pixel_LAB[j].z; //write as ascii
+		ofs<<labelled_ini[j]<<0<<0;//ofs<<Pixel_LAB[j].x<<Pixel_LAB[j].y<<Pixel_LAB[j].z; //write as ascii
 	}
 
 	ofs.close();
-*/
+
 	return 0;
 }
