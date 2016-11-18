@@ -12,6 +12,7 @@
 
 using namespace std;
 
+// storing RGB values for rgb colorspace images
 struct pixel_RGB
 {
 	unsigned char r;
@@ -19,6 +20,7 @@ struct pixel_RGB
 	unsigned char b;
 };
 
+// storing values for xyz and lab colorspace images
 struct pixel_XYZ
 {
 	float x;
@@ -26,6 +28,7 @@ struct pixel_XYZ
 	float z;
 };
 
+//store coordinates for each pixel
 struct point
 {	
 	int x;
@@ -37,6 +40,8 @@ struct point
 	
 }
 */
+
+//color space conversion from RGB to XYZ
 pixel_XYZ* RGB_XYZ(pixel_RGB* img ,int ht ,int wd)
 {	
 	pixel_XYZ *XYZ=(pixel_XYZ*)(malloc(ht*wd*sizeof(pixel_XYZ)));
@@ -82,7 +87,7 @@ pixel_XYZ* RGB_XYZ(pixel_RGB* img ,int ht ,int wd)
 
 	return XYZ;
 }
-
+//colorspace conversion from XYZ to LAB
 pixel_XYZ* XYZ_LAB(pixel_XYZ* img ,int ht ,int wd)
 {	
 	pixel_XYZ *LAB_img=(pixel_XYZ*)(malloc(ht*wd*sizeof(pixel_XYZ)));
@@ -127,6 +132,8 @@ pixel_XYZ* XYZ_LAB(pixel_XYZ* img ,int ht ,int wd)
 	return LAB_img;
 }
 
+//label2rgb
+
 int main(int argc, char* argv[])
 {
 	time_t start=time(NULL);
@@ -140,7 +147,7 @@ int main(int argc, char* argv[])
 	string line;
 
 	int img_wd, img_ht;
-	int max_val;
+	int max_pixel_val;
 	int line_count=0;
 
 	//line one contains P6, line 2 mentions about gimp version, line 3 stores the height and width
@@ -178,8 +185,8 @@ int main(int argc, char* argv[])
 	istringstream iss3(line);
 	iss3>>word;
 
-	max_val=word;//max pixel value
-	cout<<max_val<<endl;
+	max_pixel_val=word;//max pixel value
+	cout<<max_pixel_val<<endl;
 	unsigned int val;
 
 	while (getline(infile, line))
@@ -232,7 +239,7 @@ int main(int argc, char* argv[])
 
 	vector<int> label_vector;
 	
-	for(int i=1;i<=ceil(img_ht/S)*ceil(img_wd/S);i++)
+	for(int i=0;i<ceil(img_ht/S)*ceil(img_wd/S);i++)
 		label_vector.push_back(i);
 	
 	random_shuffle(label_vector.begin(),label_vector.end());
@@ -264,19 +271,37 @@ int main(int argc, char* argv[])
 
 	int * p;
 	p=find(labelled_ini, labelled_ini+k1,30);
-	while(p)
+	/*while(p)
 	{
 	cout<<*p<<endl;
 	p=find(labelled_ini, labelled_ini+k1,30);
+	}*/
+
+	pixel_RGB *rgb=(pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
+	int label_prev_val=labelled_ini[0];
+
+	//getting labelled range
+	int min_val=min_element(labelled_ini,labelled_ini+k1);
+	int max_val=max_element(labelled_ini,labelled_ini+k1);
+
+	cout<<"min="<<min_val<<", max="<<max_val<<endl;
+
+	for(int i=0;i<img_ht*img_wd;i++)
+	{
+		int label_val=labelled_ini[i];
+		rgb[i].r=21*label_val%256;
+		rgb[i].g=47*label_val%256;
+		rgb[i].b=173*label_val%256;
 	}
+
 	//OUTPUT STORAGE
 	ofstream ofs;
 	ofs.open("output.ppm", ofstream::out);
-	ofs<<"P6\n"<<img_wd<<" "<<img_ht<<"\n"<<max_val<<"\n";
+	ofs<<"P6\n"<<img_wd<<" "<<img_ht<<"\n"<<max_pixel_val<<"\n";
 
 	for(int j=0; j <img_ht*img_wd;j++)
 	{
-		ofs<<labelled_ini[j]<<0<<0;//ofs<<Pixel_LAB[j].x<<Pixel_LAB[j].y<<Pixel_LAB[j].z; //write as ascii
+		ofs<<rgb[j].r<<rgb[j].g<<rgb[j].b;//labelled_ini[j]<<0<<0;//ofs<<Pixel_LAB[j].x<<Pixel_LAB[j].y<<Pixel_LAB[j].z; //write as ascii
 	}
 
 	ofs.close();
