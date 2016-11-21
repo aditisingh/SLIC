@@ -41,6 +41,29 @@ struct point
 }
 */
 
+int max_value(int* array, int size)
+{
+	int max_val=array[0];
+	for(int i=0;i<size;i++)
+	{
+		cout<<array[i]<<" ";
+		if(array[i]>=max_val)
+			max_val=array[i];
+	}
+	return max_val;
+}
+
+int min_value(int* array, int size)
+{
+	int min_val=array[0];
+	for(int i=0;i<size;i++)
+	{
+		if(array[i]<min_val)
+			min_val=array[i];
+	}
+	return min_val;
+}
+
 //color space conversion from RGB to XYZ
 pixel_XYZ* RGB_XYZ(pixel_RGB* img ,int ht ,int wd)
 {	
@@ -143,7 +166,7 @@ int main(int argc, char* argv[])
 	//READING FILE
 	
 	ifstream infile;
-	infile.open(argv[1]);
+	infile.open("stop_1.ppm");
 	string line;
 
 	int img_wd, img_ht;
@@ -227,14 +250,14 @@ int main(int argc, char* argv[])
 	
 	//IMPLEMENTING SLIC ALGORITHM
 	int N = img_ht*img_wd;	//number of pixels in the images
-	int K = 4000;		//number of superpixels desired
+	int K = 400;		//number of superpixels desired
 
 	int S= floor(sqrt(N/K));//size of each superpixel
 	float m= 10; 		//compactness control constant
 	
 	int k1=ceil(img_ht/S)*ceil(img_wd/S);
 	//initial labelling
-	int* labelled_ini = (int*)malloc((S+img_ht)*(S+img_wd)*sizeof(int));	//row major wise storing the labels
+	int* labelled_ini = (int*)malloc(N*sizeof(int));	//row major wise storing the labels
 	int count=0;
 
 	vector<int> label_vector;
@@ -243,34 +266,45 @@ int main(int argc, char* argv[])
 		label_vector.push_back(i);
 	
 	random_shuffle(label_vector.begin(),label_vector.end());
-	
-
-	for(int i=0; i<img_wd;i=i+S)
+	S=2;
+	for(int i=0; i<4;i=i+S)
 	{
-	    for(int j=0; j<img_ht;j=j+S)
+	    for(int j=0; j<4;j=j+S)
 		{
 		for(vector<int>::iterator it=label_vector.begin();it!=label_vector.end();++it)
 		{
+			//cout<<i<<" "<<j<<" "<<*it<<endl;
 			for(int x=i;x<i+S;x++)
 				{
 				for(int y=j;y<j+S;y++)
 					{
-					int idx=x*img_wd+y;
-					labelled_ini[idx]=*it;		
+					if(x<img_wd && y<img_ht)
+						{
+						int idx=y*img_wd+x;
+						labelled_ini[idx]=*it;	
+						cout<<i<<" "<<j<<" "<<x<<" "<<y<<" "<<idx<<" "<<labelled_ini[idx]<<endl;	
+						}
 					}
 				}
 			}
 		}
 	}
-	
-	//for(int i=0; i<N;i++)
-	//	cout<<labelled_ini[i]<<" ";
-	
+	//cout<<"k1="<<k1<<", N="<<N<<endl;
+	//cout<<S<<endl;
+	for(int i=0; i<4;i++)
+	{	
+		for(int j=0; j<4;j++)
+		{
+			int idx= j*img_wd+i;
+			cout<<i<<" "<<j<<" "<<labelled_ini[idx]<<endl;
+		}
+	}
+	//cout<<labelled_ini[3586]<<endl;
 	//get initial cluster centers
 	point* centers_curr=(point*)malloc(k1*sizeof(point));
 
 	int * p;
-	p=find(labelled_ini, labelled_ini+k1,30);
+	p=find(labelled_ini, labelled_ini+N,30);
 	/*while(p)
 	{
 	cout<<*p<<endl;
@@ -281,10 +315,14 @@ int main(int argc, char* argv[])
 	int label_prev_val=labelled_ini[0];
 
 	//getting labelled range
-	int min_val=min_element(labelled_ini,labelled_ini+k1);
-	int max_val=max_element(labelled_ini,labelled_ini+k1);
+	/*
+	int min_val=min_value(labelled_ini,N);
+	int max_val=max_value(labelled_ini,N);
 
 	cout<<"min="<<min_val<<", max="<<max_val<<endl;
+
+	int range=(max_val-min_val+1);
+	cout<<range<<" "<<pow(range,1/3)<<endl;;
 
 	for(int i=0;i<img_ht*img_wd;i++)
 	{
@@ -293,7 +331,7 @@ int main(int argc, char* argv[])
 		rgb[i].g=47*label_val%256;
 		rgb[i].b=173*label_val%256;
 	}
-
+	*/
 	//OUTPUT STORAGE
 	ofstream ofs;
 	ofs.open("output.ppm", ofstream::out);
