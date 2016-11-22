@@ -266,14 +266,13 @@ int main(int argc, char* argv[])
 		label_vector.push_back(i);
 	
 	random_shuffle(label_vector.begin(),label_vector.end());
-	S=2;
-	for(int i=0; i<4;i=i+S)
+	
+	vector<int>::iterator it=label_vector.begin();
+	for(int i=0; i<img_wd;i=i+S)
 	{
-	    for(int j=0; j<4;j=j+S)
+	    for(int j=0; j<img_ht;j=j+S)
 		{
-		for(vector<int>::iterator it=label_vector.begin();it!=label_vector.end();++it)
-		{
-			//cout<<i<<" "<<j<<" "<<*it<<endl;
+			cout<<i<<" "<<j<<" "<<*it<<endl;
 			for(int x=i;x<i+S;x++)
 				{
 				for(int y=j;y<j+S;y++)
@@ -282,18 +281,18 @@ int main(int argc, char* argv[])
 						{
 						int idx=y*img_wd+x;
 						labelled_ini[idx]=*it;	
-						cout<<i<<" "<<j<<" "<<x<<" "<<y<<" "<<idx<<" "<<labelled_ini[idx]<<endl;	
+						//cout<<i<<" "<<j<<" "<<x<<" "<<y<<" "<<idx<<" "<<labelled_ini[idx]<<endl;	
 						}
 					}
 				}
-			}
+			++it;
 		}
 	}
 	//cout<<"k1="<<k1<<", N="<<N<<endl;
 	//cout<<S<<endl;
-	for(int i=0; i<4;i++)
+	for(int i=0; i<img_wd;i++)
 	{	
-		for(int j=0; j<4;j++)
+		for(int j=0; j<img_ht;j++)
 		{
 			int idx= j*img_wd+i;
 			cout<<i<<" "<<j<<" "<<labelled_ini[idx]<<endl;
