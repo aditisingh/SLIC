@@ -46,7 +46,7 @@ int max_value(int* array, int size)
 	int max_val=array[0];
 	for(int i=0;i<size;i++)
 	{
-		cout<<array[i]<<" ";
+		//cout<<array[i]<<" ";
 		if(array[i]>=max_val)
 			max_val=array[i];
 	}
@@ -166,7 +166,7 @@ int main(int argc, char* argv[])
 	//READING FILE
 	
 	ifstream infile;
-	infile.open("stop_1.ppm");
+	infile.open(argv[2]);
 	string line;
 
 	int img_wd, img_ht;
@@ -185,7 +185,7 @@ int main(int argc, char* argv[])
 	if(str1.compare("P6")!=0) //comparing magic number
 	{
 		cout<<"wrong file format"<<endl;
-		return 1;
+		//return 1;
 	}
 	
 	getline(infile,line); //this line has version related comment, hence ignoring
@@ -262,17 +262,17 @@ int main(int argc, char* argv[])
 
 	vector<int> label_vector;
 	
-	for(int i=0;i<ceil(img_ht/S)*ceil(img_wd/S);i++)
+	for(int i=0;i<(1+img_ht/S)*(1+img_wd/S);i++)
 		label_vector.push_back(i);
-	
+
 	random_shuffle(label_vector.begin(),label_vector.end());
 	
 	vector<int>::iterator it=label_vector.begin();
+
 	for(int i=0; i<img_wd;i=i+S)
 	{
 	    for(int j=0; j<img_ht;j=j+S)
 		{
-			cout<<i<<" "<<j<<" "<<*it<<endl;
 			for(int x=i;x<i+S;x++)
 				{
 				for(int y=j;y<j+S;y++)
@@ -281,24 +281,15 @@ int main(int argc, char* argv[])
 						{
 						int idx=y*img_wd+x;
 						labelled_ini[idx]=*it;	
-						//cout<<i<<" "<<j<<" "<<x<<" "<<y<<" "<<idx<<" "<<labelled_ini[idx]<<endl;	
 						}
 					}
 				}
 			++it;
+			
 		}
 	}
-	//cout<<"k1="<<k1<<", N="<<N<<endl;
-	//cout<<S<<endl;
-	for(int i=0; i<img_wd;i++)
-	{	
-		for(int j=0; j<img_ht;j++)
-		{
-			int idx= j*img_wd+i;
-			cout<<i<<" "<<j<<" "<<labelled_ini[idx]<<endl;
-		}
-	}
-	//cout<<labelled_ini[3586]<<endl;
+	
+	
 	//get initial cluster centers
 	point* centers_curr=(point*)malloc(k1*sizeof(point));
 
@@ -314,7 +305,7 @@ int main(int argc, char* argv[])
 	int label_prev_val=labelled_ini[0];
 
 	//getting labelled range
-	/*
+	
 	int min_val=min_value(labelled_ini,N);
 	int max_val=max_value(labelled_ini,N);
 
@@ -330,7 +321,7 @@ int main(int argc, char* argv[])
 		rgb[i].g=47*label_val%256;
 		rgb[i].b=173*label_val%256;
 	}
-	*/
+	
 	//OUTPUT STORAGE
 	ofstream ofs;
 	ofs.open("output.ppm", ofstream::out);
