@@ -166,7 +166,7 @@ int main(int argc, char* argv[])
 	//READING FILE
 	
 	ifstream infile;
-	infile.open(argv[2]);
+	infile.open(argv[1]);
 	string line;
 
 	int img_wd, img_ht;
@@ -181,6 +181,7 @@ int main(int argc, char* argv[])
 	int word;
 	string str1;
 	iss1>>str1;
+	cout<<"str1="<<str1<<endl;
 	
 	if(str1.compare("P6")!=0) //comparing magic number
 	{
@@ -292,27 +293,36 @@ int main(int argc, char* argv[])
 	
 	//get initial cluster centers
 	point* centers_curr=(point*)malloc(k1*sizeof(point));
-
-	int * p;
-	p=find(labelled_ini, labelled_ini+N,30);
-	/*while(p)
+	int ctr_cnt=0;
+	for(vector<int>::iterator it=label_vector.begin();it!=label_vector.end();++it)
 	{
-	cout<<*p<<endl;
-	p=find(labelled_ini, labelled_ini+k1,30);
-	}*/
+	int *p;
+	int pixel_count=0;
+	float x_mean=0, y_mean=0;
+	p=find(labelled_ini, labelled_ini+N,*it);
+	while(p!=labelled_ini+N)
+	{	//cout<<*p<<" FOUND at: "<<p-labelled_ini<<endl;
+		int index=p-labelled_ini;
+		int x_coord=index%img_wd;
+		int y_coord=index/img_wd;
+		pixel_count++;
+		x_mean+=x_coord;
+		y_mean+=y_coord;
+		p=find(p+1, labelled_ini+N,*it);
+	}
+		x_mean=x_mean/pixel_count;
+		y_mean=y_mean/pixel_count;
+		centers_curr[ctr_cnt].x=floor(x_mean);
+		centers_curr[ctr_cnt].y=floor(y_mean);
+		//cout<<"("<<centers_curr[ctr_cnt].x<<","<<centers_curr[ctr_cnt].y<<")"<<endl;	
+	}
 
+	//perturb centers 
+	
 	pixel_RGB *rgb=(pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
 	int label_prev_val=labelled_ini[0];
 
-	//getting labelled range
-	
-	int min_val=min_value(labelled_ini,N);
-	int max_val=max_value(labelled_ini,N);
-
-	cout<<"min="<<min_val<<", max="<<max_val<<endl;
-
-	int range=(max_val-min_val+1);
-	cout<<range<<" "<<pow(range,1/3)<<endl;;
+	//getting labelled image
 
 	for(int i=0;i<img_ht*img_wd;i++)
 	{
