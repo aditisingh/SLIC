@@ -317,7 +317,8 @@ int main(int argc, char* argv[])
 		//cout<<"("<<centers_curr[ctr_cnt].x<<","<<centers_curr[ctr_cnt].y<<")"<<endl;	
 	}
 
-	//perturb centers 
+	//perturb centers in a 3x3 neighborhood
+
 	
 	pixel_RGB *rgb=(pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
 	int label_prev_val=labelled_ini[0];
