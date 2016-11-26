@@ -69,6 +69,8 @@ __host__ __device__ point* initial_centre(vector<int> label_vector, int* labelle
     y_mean=y_mean/pixel_count;
     centers_curr[ctr_cnt].x=floor(x_mean);
     centers_curr[ctr_cnt].y=floor(y_mean);
+    // cout<<"means="<<centers_curr[ctr_cnt].x<<" "<<centers_curr[ctr_cnt].y<<" "<<ctr_cnt<<endl;
+    ctr_cnt++;
   }
   return centers_curr;
 }
@@ -358,7 +360,7 @@ int main(int argc, char* argv[])
   int S= floor(sqrt(N/K));//size of each superpixel
   float m= 10;    //compactness control constant
   
-  int k1=ceil(img_ht/S)*ceil(img_wd/S);
+  int k1=(1+img_ht/S)*(1+ img_wd/S);
   //initial labelling
   int* labelled_ini = (int*)malloc(N*sizeof(int));  //row major wise storing the labels
   int count=0;
@@ -393,8 +395,12 @@ int main(int argc, char* argv[])
   }
 
   //get initial cluster centers
+ // cout<<"k1= "<<k1<<" "<<(1+img_ht/S)*(1+img_wd/S)<<endl;
   point* centers_curr=(point*)malloc(k1*sizeof(point));
   centers_curr=initial_centre(label_vector, labelled_ini, N, img_wd, centers_curr);
+
+  // for(int j=0; j<k1; j++)
+  //   cout<<centers_curr[j].x<<" "<<centers_curr[j].y<<endl;
 
   //perturb centers in a 3x3 neighborhood
   float *K1 = (float *)malloc(3 *sizeof(float)); 
@@ -477,11 +483,30 @@ int main(int argc, char* argv[])
   for(int i=0;i<img_ht*img_wd;i++)
   {
     int label_val=labelled_ini[i];
-    rgb[i].r=21*label_val%256;
-    rgb[i].g=47*label_val%256;
-    rgb[i].b=173*label_val%256;
+    rgb[i].r=21*label_val%255;
+    rgb[i].g=47*label_val%255;
+    rgb[i].b=173*label_val%255;
   }
   
+  //labelling the centers
+  for(int i=0; i<k1;i++)  
+  {
+    int x_coord=centers_curr[i].x;
+    int y_coord=centers_curr[i].y;
+    // cout<<x_coord<<" "<<y_coord<<endl;
+    for (int x=x_coord-5; x<x_coord+5; x++)
+    {
+      for(int y=y_coord-5; y<y_coord+5; y++)
+      {
+        int idx=img_wd*y_coord + x_coord;
+        rgb[idx].r= NULL;//(unsigned char) 0; 
+        rgb[idx].g= NULL;//(unsigned char) 0; 
+        rgb[idx].b= NULL;//(unsigned char) 0;
+        // cout<<idx<<" "<<rgb[idx].r<<" "<<rgb[idx].g<<" "<<rgb[idx].b<<endl;
+      }
+    }
+   
+  }
   //OUTPUT STORAGE
   ofstream ofs;
   ofs.open("output.ppm", ofstream::out);
@@ -489,8 +514,9 @@ int main(int argc, char* argv[])
 
   for(int j=0; j <img_ht*img_wd;j++)
     ofs<<rgb[j].r<<rgb[j].g<<rgb[j].b;//labelled_ini[j]<<0<<0;//ofs<<Pixel_LAB[j].x<<Pixel_LAB[j].y<<Pixel_LAB[j].z; //write as ascii
-
-  // ofs.close();
+      //cout<<rgb[j].r<<" "<<rgb[j].g<<" "<<rgb[j].b<<endl;}
+  
+  ofs.close();
   
   return 0;
 }
