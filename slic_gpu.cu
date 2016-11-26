@@ -19,6 +19,8 @@ using namespace std;
     }
   }
 
+#define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__ ))
+
 // storing RGB values for rgb colorspace images
 struct pixel_RGB
 {
@@ -42,37 +44,128 @@ struct point
   int y;
 };
 
-/*point initial_centre(int* label, val)
+__host__ point* initial_centre(vector<int> label_vector, int* labelled_ini, int N, int img_wd, point* centers_curr)
 {
-  
-}
-*/
-
-int max_value(int* array, int size)
-{
-  int max_val=array[0];
-  for(int i=0;i<size;i++)
+  int ctr_cnt=0;
+  for(vector<int>::iterator it=label_vector.begin();it!=label_vector.end();++it)
   {
-    //cout<<array[i]<<" ";
-    if(array[i]>=max_val)
-      max_val=array[i];
+    int *p;
+    int pixel_count=0;
+    float x_mean=0, y_mean=0;
+    p=find(labelled_ini, labelled_ini+N,*it);
+    while(p!=labelled_ini+N)
+    { //cout<<*p<<" FOUND at: "<<p-labelled_ini<<endl;
+      int index=p-labelled_ini;
+      int x_coord=index%img_wd;
+      int y_coord=index/img_wd;
+      pixel_count++;
+      x_mean+=x_coord;
+      y_mean+=y_coord;
+      p=find(p+1, labelled_ini+N,*it);
+    }
+    x_mean=x_mean/pixel_count;
+    y_mean=y_mean/pixel_count;
+    centers_curr[ctr_cnt].x=floor(x_mean);
+    centers_curr[ctr_cnt].y=floor(y_mean);
   }
-  return max_val;
+  return centers_curr;
 }
 
-int min_value(int* array, int size)
+__global__ void squared_elem_add(G1_gpu,G2_gpu,G_gpu,img_wd,img_ht)
 {
-  int min_val=array[0];
+  size_t col=blockIdx.x*blockDim.x + threadIdx.x;
+  size_t row=blockIdx.y*blockDim.y + threadIdx.y;
+
+  size_t idx=row*img_wd+col;
+
+  if(col>img_wd || row>img_ht)
+    return;
+
+  G_gpu[idx]=G1_gpu[idx]*G1_gpu[idx] + G2_gpu[idx]*G2_gpu[idx];
+}
+
+__host__ __device__ int padding(int* labelled, int x_coord, int y_coord, int img_width, int img_height) 
+{ int val=0;
+  if(x_coord< img_width && y_coord <img_height && x_coord>=0 && y_coord>=0)
+  {
+    val=labelled[y_coord*img_width+x_coord];
+  }
+  return val;
+}
+
+__global__ void vertical_conv(int* labelled_in, int* labelled_out,int img_wd, int img_ht, float* kernel, int k)
+{
+  size_t col=blockIdx.x*blockDim.x + threadIdx.x;
+  size_t row=blockIdx.y*blockDim.y + threadIdx.y;
+
+  size_t idx=row*img_wd+col;
+
+  float tmp=0;    
+  
+  if(row<img_ht && col<img_wd){
+
+    for(int l=0;l<k;l++)
+    {
+      int val=padding(labelled_in, col, (row+l-(k-1)/2), img_wd, img_ht);
+      tmp+=val * kernel[l];
+    }
+
+    labelled_out[idx]=tmp;
+  }
+}     
+
+
+__global__ void horizontal_conv(int* labelled_in, int* labelled_out, int img_wd, int img_ht, float* kernel, int k)
+{
+  size_t col=blockIdx.x*blockDim.x + threadIdx.x;
+  size_t row=blockIdx.y*blockDim.y + threadIdx.y;
+  size_t idx=row*img_wd+col;
+
+  float tmp=0;
+
+  if(row<img_ht && col<img_wd)
+  {
+    for(int l=0; l<k;l++)
+    {
+      int val=padding(labelled_in, col+ l-(k-1)/2, row, img_wd, img_ht);
+      tmp+=val * kernel[l];
+    }
+    labelled_out[idx]=tmp;
+  }
+}
+
+
+__host__ int max_index(int* array, int size, int x1, int x2, int y1, int y2, int img_wd)
+{
+  int index=0;
+  //finding max values from (X1,y1) to (X2,y2)
   for(int i=0;i<size;i++)
   {
-    if(array[i]<min_val)
-      min_val=array[i];
+    if(int(i%img_wd)>=x1 && int(i%img_wd)<=x2 && int(i/img_wd)>=y1 && int(i/img_wd)<=y2)
+    {  
+      if(array[i]>=array[index])
+        index=i;
+    }
+  }
+  return index;
+}
+
+__host__ int min_index(int* array, int size, int x1, int x2, int y1, int y2, int img_wd)
+{
+  int index=0;
+  for(int i=0;i<size;i++)
+  {
+    if(int(i%img_wd)>=x1 && int(i%img_wd)<=x2 && int(i/img_wd)>=y1 && int(i/img_wd)<=y2)
+    { 
+      if(array[i]<array[index])
+        index=i;
+    }
   }
   return min_val;
 }
 
 //color space conversion from RGB to XYZ
-pixel_XYZ* RGB_XYZ(pixel_RGB* img ,int ht ,int wd)
+__host__ pixel_XYZ* RGB_XYZ(pixel_RGB* img ,int ht ,int wd)
 { 
   pixel_XYZ *XYZ=(pixel_XYZ*)(malloc(ht*wd*sizeof(pixel_XYZ)));
 
@@ -118,7 +211,7 @@ pixel_XYZ* RGB_XYZ(pixel_RGB* img ,int ht ,int wd)
   return XYZ;
 }
 //colorspace conversion from XYZ to LAB
-pixel_XYZ* XYZ_LAB(pixel_XYZ* img ,int ht ,int wd)
+__host__ pixel_XYZ* XYZ_LAB(pixel_XYZ* img ,int ht ,int wd)
 { 
   pixel_XYZ *LAB_img=(pixel_XYZ*)(malloc(ht*wd*sizeof(pixel_XYZ)));
 
@@ -277,9 +370,10 @@ int main(int argc, char* argv[])
   
   vector<int>::iterator it=label_vector.begin();
 
+  //initialize labels
   for(int i=0; i<img_wd;i=i+S)
   {
-      for(int j=0; j<img_ht;j=j+S)
+    for(int j=0; j<img_ht;j=j+S)
     {
       for(int x=i;x<i+S;x++)
         {
@@ -292,69 +386,92 @@ int main(int argc, char* argv[])
             }
           }
         }
-      ++it;
-      
+      ++it; 
     }
   }
   
-  
   //get initial cluster centers
   point* centers_curr=(point*)malloc(k1*sizeof(point));
-  int ctr_cnt=0;
-  for(vector<int>::iterator it=label_vector.begin();it!=label_vector.end();++it)
-  {
-  int *p;
-  int pixel_count=0;
-  float x_mean=0, y_mean=0;
-  p=find(labelled_ini, labelled_ini+N,*it);
-  while(p!=labelled_ini+N)
-  { //cout<<*p<<" FOUND at: "<<p-labelled_ini<<endl;
-    int index=p-labelled_ini;
-    int x_coord=index%img_wd;
-    int y_coord=index/img_wd;
-    pixel_count++;
-    x_mean+=x_coord;
-    y_mean+=y_coord;
-    p=find(p+1, labelled_ini+N,*it);
-  }
-    x_mean=x_mean/pixel_count;
-    y_mean=y_mean/pixel_count;
-    centers_curr[ctr_cnt].x=floor(x_mean);
-    centers_curr[ctr_cnt].y=floor(y_mean);
-    //cout<<"("<<centers_curr[ctr_cnt].x<<","<<centers_curr[ctr_cnt].y<<")"<<endl;  
-  }
+  centers_curr=initial_centre(label_vector, labelled_ini, N, img_wd, centers_curr);
 
   //perturb centers in a 3x3 neighborhood
-
-  float K1[3]={0,1.1892,0};
-  float K2[3]={-0.8409,0,0.8409};
-
-
-
-  pixel_RGB *rgb=(pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
-  int label_prev_val=labelled_ini[0];
-
-  //getting labelled image
-
-  for(int i=0;i<img_ht*img_wd;i++)
-  {
-    int label_val=labelled_ini[i];
-    rgb[i].r=21*label_val%256;
-    rgb[i].g=47*label_val%256;
-    rgb[i].b=173*label_val%256;
-  }
+  float *K1 = (float *)malloc(3 *sizeof(float)); 
+  float *K2 = (float *)malloc(3 *sizeof(float));
   
-  //OUTPUT STORAGE
-  ofstream ofs;
-  ofs.open("output.ppm", ofstream::out);
-  ofs<<"P6\n"<<img_wd<<" "<<img_ht<<"\n"<<max_pixel_val<<"\n";
+  K1[0]=0; K1[1]=1.1892; K1[2]=0;
+  K2[0]=-0.8409; K2[1]=0; K2[2]=0.8409;
 
-  for(int j=0; j <img_ht*img_wd;j++)
-  {
-    ofs<<rgb[j].r<<rgb[j].g<<rgb[j].b;//labelled_ini[j]<<0<<0;//ofs<<Pixel_LAB[j].x<<Pixel_LAB[j].y<<Pixel_LAB[j].z; //write as ascii
-  }
+  int *labelled_gpu, *labelled_tmp_gpu, *G1_gpu, *G2_gpu, G_gpu;
 
-  ofs.close();
+  // HANDLE_ERROR(cudaMalloc(&labelled_gpu, N*sizeof(int)));
+  
+  // HANDLE_ERROR(cudaMalloc(&labelled_tmp_gpu, N*sizeof(int)));
+
+  // float *K1_gpu, *K2_gpu;
+  
+  // HANDLE_ERROR(cudaMalloc(&K1_gpu, 3*sizeof(float)));
+
+  // HANDLE_ERROR(cudaMalloc(&K2_gpu, 3*sizeof(float)));
+
+  // HANDLE_ERROR(cudaMalloc(&G1_gpu, N*sizeof(int)));
+
+  // HANDLE_ERROR(cudaMalloc(&G2_gpu, N*sizeof(int)));
+
+  // HANDLE_ERROR(cudaMalloc(&G_gpu, N*sizeof(int)));
+
+  // cudaDeviceProp prop;
+  // HANDLE_ERROR(cudaGetDeviceProperties(&prop, 0));  //using GPU0
+
+  // HANDLE_ERROR(cudaMemcpy(labelled_gpu, labelled_ini, N*sizeof(int), cudaMemcpyHostToDevice));
+  // HANDLE_ERROR(cudaMemcpy(labelled_tmp_gpu, labelled_ini, N*sizeof(int), cudaMemcpyHostToDevice));
+  // HANDLE_ERROR(cudaMemcpy(K1_gpu, K1, 3*sizeof(int), cudaMemcpyHostToDevice));
+  // HANDLE_ERROR(cudaMemcpy(K2_gpu, K2, 3*sizeof(int), cudaMemcpyHostToDevice));
+
+
+  // int* G=(int*)malloc(N*sizeof(int)); 
+
+  // float thread_block=sqrt(prop.maxThreadsPerBlock);
+  // dim3 DimGrid(ceil(img_wd/thread_block),ceil(img_ht/thread_block),1); //image saved as a 2D grid
+  // dim3 DimBlock(thread_block,thread_block,1);
+
+
+  // vertical_conv<<<DimGrid,DimBlock>>>(labelled_gpu, labelled_tmp_gpu,img_wd, img_ht,K1_gpu,3);
+  // horizontal_conv<<<DimGrid, DimBlock>>>(labelled_tmp_gpu, G1_gpu, img_wd, img_ht, K2_gpu, 3);
+
+  // vertical_conv<<<DimGrid,DimBlock>>>(labelled_gpu, labelled_tmp_gpu,img_wd, img_ht,K2_gpu,3);
+  // horizontal_conv<<<DimGrid, DimBlock>>>(labelled_tmp_gpu, G2_gpu, img_wd, img_ht, K1_gpu, 3);
+
+  // squared_elem_add<<<DimGrid,DimBlock>>>(G1_gpu,G2_gpu,G_gpu,img_wd,img_ht);
+
+  // HANDLE_ERROR(cudaMemcpy(G, G_gpu, N*sizeof(int), cudaMemcpyDeviceToHost));
+
+  // for(int i=0; i<k1;i++)
+  // {
+
+  // }
+
+  // pixel_RGB *rgb=(pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
+  // int label_prev_val=labelled_ini[0];
+
+  // //getting labelled image
+
+  // for(int i=0;i<img_ht*img_wd;i++)
+  // {
+  //   int label_val=labelled_ini[i];
+  //   rgb[i].r=21*label_val%256;
+  //   rgb[i].g=47*label_val%256;
+  //   rgb[i].b=173*label_val%256;
+  // }
+  
+  // //OUTPUT STORAGE
+  // ofstream ofs;
+  // ofs.open("output.ppm", ofstream::out);
+  // ofs<<"P6\n"<<img_wd<<" "<<img_ht<<"\n"<<max_pixel_val<<"\n";
+
+  // for(int j=0; j <img_ht*img_wd;j++)
+  //   ofs<<rgb[j].r<<rgb[j].g<<rgb[j].b;//labelled_ini[j]<<0<<0;//ofs<<Pixel_LAB[j].x<<Pixel_LAB[j].y<<Pixel_LAB[j].z; //write as ascii
+
+  // ofs.close();
 
   return 0;
 }
