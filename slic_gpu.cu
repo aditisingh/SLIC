@@ -447,9 +447,26 @@ int main(int argc, char* argv[])
 
   HANDLE_ERROR(cudaMemcpy(G, G_gpu, N*sizeof(int), cudaMemcpyDeviceToHost));
 
-  for(int i=0; i<k1;i++)
+  for(int i=0; i<k1;i++)  //for every component
   {
+    int x1=centers_curr[i].x-1;
+    int x2=centers_curr[i].x+1;
+    int y1=centers_curr[i].y-1;
+    int y2=centers_curr[i].y+1;
 
+    int index = min_index(G, N, x1, x2, y1, y2, img_wd);
+
+    centers_curr[i].x=(floor)(index%img_wd);
+    centers_curr[i].y=(floor)(index/img_wd);
+
+  }
+
+
+  int num_iterations=100;
+
+  for(int epoch=1; epoch<num_iterations; epoch++)
+  {
+    
   }
 
   pixel_RGB *rgb=(pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
