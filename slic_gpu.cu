@@ -468,15 +468,32 @@ int main(int argc, char* argv[])
   }
 
 
-  int num_iterations=100;
+  int num_iterations=10;
 
   for(int epoch=1; epoch<num_iterations; epoch++)
   {
-    
+    cout<<"epoch= "<<epoch<<endl;
+    for(int i=0; i<k1;i++)//for every cluster center
+    {
+      for(int j=0;j<N;j++)//for every point in image
+      {
+        int x_center=centers_curr[i].x;
+        int y_center=centers_curr[i].y;
+        int index_center=y_center*img_wd+x_center;
+        int x_coord=j%img_wd;
+        int y_coord=j/img_wd;
+        float d_c = pow(pow((Pixel_LAB[index_center].x-Pixel_LAB[j].x),2) + pow((Pixel_LAB[index_center].y-Pixel_LAB[j].y),2) + pow((Pixel_LAB[index_center].z-Pixel_LAB[j].z),2),0.5); //color proximity;
+        float d_s = pow(pow(x_coord-x_center,2)+pow(y_coord-y_center,2),0.5); //spatial proximity
+
+        float D=pow(pow(d_c,2)+pow(m*d_s/S,2),0.5);
+        cout<<D<<" ";
+      }
+      cout<<endl;
+    }
   }
 
   pixel_RGB *rgb=(pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
-  int label_prev_val=labelled_ini[0];
+ 
 
   //getting labelled image
 
