@@ -466,11 +466,15 @@ int main(int argc, char* argv[])
     centers_curr[i].y=(floor)(index/img_wd);
 
   }
+  int num_iterations=2;
+
+  float** D = (float**) malloc(sizeof(float*)*k1);
+
+  for(int i=0; i<k1; i++)
+    D[i]=(float*) malloc(sizeof(float)*N);
 
 
-  int num_iterations=10;
-
-  for(int epoch=1; epoch<num_iterations; epoch++)
+  for(int epoch=0; epoch<num_iterations; epoch++)
   {
     cout<<"epoch= "<<epoch<<endl;
     for(int i=0; i<k1;i++)//for every cluster center
@@ -485,11 +489,33 @@ int main(int argc, char* argv[])
         float d_c = pow(pow((Pixel_LAB[index_center].x-Pixel_LAB[j].x),2) + pow((Pixel_LAB[index_center].y-Pixel_LAB[j].y),2) + pow((Pixel_LAB[index_center].z-Pixel_LAB[j].z),2),0.5); //color proximity;
         float d_s = pow(pow(x_coord-x_center,2)+pow(y_coord-y_center,2),0.5); //spatial proximity
 
-        float D=pow(pow(d_c,2)+pow(m*d_s/S,2),0.5);
-        cout<<D<<" ";
+        D[i][j]=pow(pow(d_c,2)+pow(m*d_s/S,2),0.5);
+
+       // cout<<D[i][j]<<" ";
       }
-      cout<<endl;
+      //cout<<endl;
     }
+    //pixel assignment
+    //for every point in image, find min D
+    for(int j=0;j<N;j++)
+    {
+      float min_val=D[0][j];
+      int min_index=0;
+      for(int i=0; i<k1;i++)
+      {
+        if(D[i][j]<min_val)
+          min_val=D[i][j], min_index=i;
+      } 
+      //min_index found
+      //assign the label of center to the pixel
+      int x_coord=centers_curr[i].x;
+      int y_coord=centers_curr[i].y;
+      int index_center=x_coord+y_coord*img_wd;
+      labelled_ini[j]=labelled_ini[index_center];
+    }
+
+    
+
   }
 
   pixel_RGB *rgb=(pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
