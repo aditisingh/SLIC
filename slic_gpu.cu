@@ -355,7 +355,7 @@ int main(int argc, char* argv[])
   
   //IMPLEMENTING SLIC ALGORITHM
   int N = img_ht*img_wd;  //number of pixels in the images
-  int K = 400;    //number of superpixels desired
+  int K = 4000;    //number of superpixels desired
 
   int S= floor(sqrt(N/K));//size of each superpixel
   float m= 10;    //compactness control constant
@@ -466,7 +466,7 @@ int main(int argc, char* argv[])
     centers_curr[i].y=(floor)(index/img_wd);
 
   }
-  int num_iterations=2;
+  int num_iterations=25;
 
   float** D = (float**) malloc(sizeof(float*)*k1);
 
@@ -508,14 +508,43 @@ int main(int argc, char* argv[])
       } 
       //min_index found
       //assign the label of center to the pixel
-      int x_coord=centers_curr[i].x;
-      int y_coord=centers_curr[i].y;
+      int x_coord=centers_curr[min_index].x;
+      int y_coord=centers_curr[min_index].y;
       int index_center=x_coord+y_coord*img_wd;
       labelled_ini[j]=labelled_ini[index_center];
     }
 
-    
+    //new centers calculated
+    centers_curr=initial_centre(label_vector, labelled_ini, N, img_wd, centers_curr);
 
+  HANDLE_ERROR(cudaMemcpy(labelled_gpu, labelled_ini, N*sizeof(int), cudaMemcpyHostToDevice));
+  HANDLE_ERROR(cudaMemcpy(labelled_tmp_gpu, labelled_ini, N*sizeof(int), cudaMemcpyHostToDevice));
+
+
+
+  vertical_conv<<<DimGrid,DimBlock>>>(labelled_gpu, labelled_tmp_gpu,img_wd, img_ht,K1_gpu,3);
+  horizontal_conv<<<DimGrid, DimBlock>>>(labelled_tmp_gpu, G1_gpu, img_wd, img_ht, K2_gpu, 3);
+
+  vertical_conv<<<DimGrid,DimBlock>>>(labelled_gpu, labelled_tmp_gpu,img_wd, img_ht,K2_gpu,3);
+  horizontal_conv<<<DimGrid, DimBlock>>>(labelled_tmp_gpu, G2_gpu, img_wd, img_ht, K1_gpu, 3);
+
+  squared_elem_add<<<DimGrid,DimBlock>>>(G1_gpu,G2_gpu,G_gpu,img_wd,img_ht);
+
+  HANDLE_ERROR(cudaMemcpy(G, G_gpu, N*sizeof(int), cudaMemcpyDeviceToHost));
+
+  for(int i=0; i<k1;i++)  //for every component
+  {
+    int x1=centers_curr[i].x-1;
+    int x2=centers_curr[i].x+1;
+    int y1=centers_curr[i].y-1;
+    int y2=centers_curr[i].y+1;
+
+    int index = min_index(G, N, x1, x2, y1, y2, img_wd);
+
+    centers_curr[i].x=(floor)(index%img_wd);
+    centers_curr[i].y=(floor)(index/img_wd);
+
+  }
   }
 
   pixel_RGB *rgb=(pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
