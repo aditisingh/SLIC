@@ -472,7 +472,7 @@ int main(int argc, char* argv[])
   }
   time_t t3 =time(NULL);
 
-  int num_iterations=100;
+  int num_iterations=10;
 
   float** D = (float**) malloc(sizeof(float*)*k1);
 
@@ -565,16 +565,18 @@ int main(int argc, char* argv[])
   //getting labelled image
   time_t t7 =time(NULL);
 
+  float alpha=0.4;
+
   for(int i=0;i<img_ht*img_wd;i++)
   {
     int label_val=labelled_ini[i];
-    rgb[i].r=21*label_val%255;
-    rgb[i].g=47*label_val%255;
-    rgb[i].b=173*label_val%255;
+    rgb[i].r=alpha*(21*label_val%255) + (1-alpha)*Pixel[i].r;
+    rgb[i].g=alpha*(47*label_val%255) + (1-alpha)*Pixel[i].g;
+    rgb[i].b=alpha*(173*label_val%255) + (1-alpha)*Pixel[i].b;
   }
   
   //labelling the centers
-  for(int i=0; i<k1;i++)  
+ /* for(int i=0; i<k1;i++)  
   {
     int x_coord=centers_curr[i].x;
     int y_coord=centers_curr[i].y;
@@ -590,9 +592,7 @@ int main(int argc, char* argv[])
         // cout<<idx<<" "<<rgb[idx].r<<" "<<rgb[idx].g<<" "<<rgb[idx].b<<endl;
       }
     }
-
-   
-  }
+    }*/
   time_t t8 =time(NULL);
   //OUTPUT STORAGE
   ofstream ofs;
