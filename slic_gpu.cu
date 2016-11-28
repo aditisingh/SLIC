@@ -348,14 +348,16 @@ int main(int argc, char* argv[])
   //RGB->XYZ->CIE-L*ab
 
   //RGB to XYZ
+  time_t t9= time(NULL);
   pixel_XYZ *Pixel_XYZ=RGB_XYZ(Pixel, img_ht, img_wd);
   
   //XYZ TO CIE-L*ab
   pixel_XYZ* Pixel_LAB=XYZ_LAB(Pixel_XYZ, img_ht, img_wd);
-  
+  time_t t10=time(NULL);
+
   //IMPLEMENTING SLIC ALGORITHM
   int N = img_ht*img_wd;  //number of pixels in the images
-  int K = 4000;    //number of superpixels desired
+  int K = 400;    //number of superpixels desired
 
   int S= floor(sqrt(N/K));//size of each superpixel
   float m= 10;    //compactness control constant
@@ -397,12 +399,14 @@ int main(int argc, char* argv[])
   //get initial cluster centers
  // cout<<"k1= "<<k1<<" "<<(1+img_ht/S)*(1+img_wd/S)<<endl;
   point* centers_curr=(point*)malloc(k1*sizeof(point));
+  time_t t0= time(NULL);
   centers_curr=initial_centre(label_vector, labelled_ini, N, img_wd, centers_curr);
-
+  time_t t1= time(NULL);
   // for(int j=0; j<k1; j++)
   //   cout<<centers_curr[j].x<<" "<<centers_curr[j].y<<endl;
 
   //perturb centers in a 3x3 neighborhood
+
   float *K1 = (float *)malloc(3 *sizeof(float)); 
   float *K2 = (float *)malloc(3 *sizeof(float));
   
@@ -442,7 +446,7 @@ int main(int argc, char* argv[])
   dim3 DimGrid(ceil(img_wd/thread_block),ceil(img_ht/thread_block),1); //image saved as a 2D grid
   dim3 DimBlock(thread_block,thread_block,1);
 
-
+  time_t t2 =time(NULL);
   vertical_conv<<<DimGrid,DimBlock>>>(labelled_gpu, labelled_tmp_gpu,img_wd, img_ht,K1_gpu,3);
   horizontal_conv<<<DimGrid, DimBlock>>>(labelled_tmp_gpu, G1_gpu, img_wd, img_ht, K2_gpu, 3);
 
@@ -466,17 +470,21 @@ int main(int argc, char* argv[])
     centers_curr[i].y=(floor)(index/img_wd);
 
   }
-  int num_iterations=25;
+  time_t t3 =time(NULL);
+
+  int num_iterations=100;
 
   float** D = (float**) malloc(sizeof(float*)*k1);
 
   for(int i=0; i<k1; i++)
     D[i]=(float*) malloc(sizeof(float)*N);
 
-
+  time_t t5, t6, t4;
   for(int epoch=0; epoch<num_iterations; epoch++)
   {
     cout<<"epoch= "<<epoch<<endl;
+    t4 =time(NULL);
+
     for(int i=0; i<k1;i++)//for every cluster center
     {
       for(int j=0;j<N;j++)//for every point in image
@@ -495,6 +503,8 @@ int main(int argc, char* argv[])
       }
       //cout<<endl;
     }
+    t5 =time(NULL);
+
     //pixel assignment
     //for every point in image, find min D
     for(int j=0;j<N;j++)
@@ -513,6 +523,8 @@ int main(int argc, char* argv[])
       int index_center=x_coord+y_coord*img_wd;
       labelled_ini[j]=labelled_ini[index_center];
     }
+    t6 =time(NULL);
+
 
     //new centers calculated
     centers_curr=initial_centre(label_vector, labelled_ini, N, img_wd, centers_curr);
@@ -551,6 +563,7 @@ int main(int argc, char* argv[])
  
 
   //getting labelled image
+  time_t t7 =time(NULL);
 
   for(int i=0;i<img_ht*img_wd;i++)
   {
@@ -577,8 +590,10 @@ int main(int argc, char* argv[])
         // cout<<idx<<" "<<rgb[idx].r<<" "<<rgb[idx].g<<" "<<rgb[idx].b<<endl;
       }
     }
+
    
   }
+  time_t t8 =time(NULL);
   //OUTPUT STORAGE
   ofstream ofs;
   ofs.open("output.ppm", ofstream::out);
@@ -589,6 +604,13 @@ int main(int argc, char* argv[])
       //cout<<rgb[j].r<<" "<<rgb[j].g<<" "<<rgb[j].b<<endl;}
   
   ofs.close();
+  
+  cout<<" Colorspace conversion: "<<double(t10 - t9)<<" sec"<<endl;
+  cout<<" Getting centers:"<<double(t1-t0)<<" sec"<<endl;
+  cout<<" Perturbing centers:" <<double(t3- t2)<<" sec"<<endl;
+  cout<<" Distance measure calculation: "<<double(t5- t4)<<"sec"<<endl;
+  cout<<" New pixel assignment:"<<double(t6-t5)<<" sec"<<endl;
+  cout<<" Label2rgb:"<<double(t8 -t7)<<" sec"<<endl;
   
   return 0;
 }
