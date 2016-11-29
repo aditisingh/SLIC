@@ -259,7 +259,18 @@ __host__ __device__ pixel_XYZ* XYZ_LAB(pixel_XYZ* img ,int ht ,int wd)
   return LAB_img;
 }
 
-//label2rgb
+//error calculation
+float error_calculation(int* labelled_ini, int* labelled_prev, int N)
+{
+  float err=0;
+  for(int i=0;i<N;i++)
+  {
+    if(labelled_ini[i]!=labelled_prev[i])
+      err++;
+  }
+  err=err/N;
+  return err;
+}
 
 int main(int argc, char* argv[])
 {
@@ -276,7 +287,6 @@ int main(int argc, char* argv[])
 
   int img_wd, img_ht;
   int max_pixel_val;
-  int line_count=0;
 
   //line one contains P6, line 2 mentions about gimp version, line 3 stores the height and width
   getline(infile, line);
@@ -365,8 +375,7 @@ int main(int argc, char* argv[])
   int k1=(1+img_ht/S)*(1+ img_wd/S);
   //initial labelling
   int* labelled_ini = (int*)malloc(N*sizeof(int));  //row major wise storing the labels
-  int count=0;
-
+  int* labelled_prev= (int*)malloc(N*sizeof(int));  //store previous epochs values
   vector<int> label_vector;
   
   for(int i=0;i<(1+img_ht/S)*(1+img_wd/S);i++)
@@ -472,7 +481,7 @@ int main(int argc, char* argv[])
   }
   time_t t3 =time(NULL);
 
-  int num_iterations=10;
+  int num_iterations=100;
 
   float** D = (float**) malloc(sizeof(float*)*k1);
 
@@ -482,7 +491,8 @@ int main(int argc, char* argv[])
   time_t t5, t6, t4;
   for(int epoch=0; epoch<num_iterations; epoch++)
   {
-    cout<<"epoch= "<<epoch<<endl;
+    labelled_prev=labelled_ini;
+    cout<<"epoch = "<<epoch<<" , ";
     t4 =time(NULL);
 
     for(int i=0; i<k1;i++)//for every cluster center
@@ -506,15 +516,18 @@ int main(int argc, char* argv[])
     t5 =time(NULL);
 
     //pixel assignment
-    //for every point in image, find min D
+    //for every point in image, find min D in 2Sx 2S neighbourhood
     for(int j=0;j<N;j++)
     {
       float min_val=D[0][j];
       int min_index=0;
       for(int i=0; i<k1;i++)
       {
-        if(D[i][j]<min_val)
+        if(abs(centers_curr[i].x-(j%img_wd))<S && abs(centers_curr[i].y - (j/img_wd))<S)
+        {
+          if(D[i][j]<min_val)
           min_val=D[i][j], min_index=i;
+        }
       } 
       //min_index found
       //assign the label of center to the pixel
@@ -557,6 +570,9 @@ int main(int argc, char* argv[])
     centers_curr[i].y=(floor)(index/img_wd);
 
   }
+  //error calculation
+  float error= error_calculation(labelled_ini, labelled_prev,N);
+  cout<<"error = "<<error<<endl;
   }
 
   pixel_RGB *rgb=(pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
@@ -566,7 +582,6 @@ int main(int argc, char* argv[])
   time_t t7 =time(NULL);
 
   float alpha=0.4;
-
   for(int i=0;i<img_ht*img_wd;i++)
   {
     int label_val=labelled_ini[i];
@@ -576,7 +591,7 @@ int main(int argc, char* argv[])
   }
   
   //labelling the centers
- /* for(int i=0; i<k1;i++)  
+  for(int i=0; i<k1;i++)  
   {
     int x_coord=centers_curr[i].x;
     int y_coord=centers_curr[i].y;
@@ -586,13 +601,15 @@ int main(int argc, char* argv[])
       for(int y=y_coord-5; y<y_coord+5; y++)
       {
         int idx=img_wd*y_coord + x_coord;
-        rgb[idx].r= NULL;//(unsigned char) 0; 
-        rgb[idx].g= NULL;//(unsigned char) 0; 
-        rgb[idx].b= NULL;//(unsigned char) 0;
+        rgb[idx].r= 0;//NULL;//(unsigned char) 0; 
+        rgb[idx].g= 0;//(unsigned char) 0; 
+        rgb[idx].b= 0;//(unsigned char) 0;
         // cout<<idx<<" "<<rgb[idx].r<<" "<<rgb[idx].g<<" "<<rgb[idx].b<<endl;
       }
     }
-    }*/
+
+   
+  }
   time_t t8 =time(NULL);
   //OUTPUT STORAGE
   ofstream ofs;
