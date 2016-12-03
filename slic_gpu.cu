@@ -46,9 +46,9 @@ struct point
   int y;	//y-coordinate
 };
 
-point* initial_centre(vector<int> label_vector, int* labelled_ini, int N, int img_wd,  point* centers_curr)	//find centers for the clusters
+point* initial_centre(vector<int> label_vector, int* labelled_ini, int N, int img_wd,point* centers_curr )	//find centers for the clusters
 {
-
+  
   int ctr_cnt=0;	//center counts
   for(vector<int>::iterator it=label_vector.begin();it!=label_vector.end();++it)	//for every cluster as per label
   {
@@ -74,8 +74,6 @@ point* initial_centre(vector<int> label_vector, int* labelled_ini, int N, int im
   }
   return centers_curr;
 }
-
-
 
 __global__ void squared_elem_add(int* G1_gpu, int* G2_gpu,int* G_gpu,int img_wd, int img_ht)
 {
@@ -283,7 +281,7 @@ int main(int argc, char* argv[])
   //READING FILE
   
   ifstream infile;
-  infile.open(argv[1]);
+  infile.open(argv[1]);  //opening the file
   string line;
 
   int img_wd, img_ht;
@@ -297,7 +295,6 @@ int main(int argc, char* argv[])
   int word;
   string str1;
   iss1>>str1;
-  //cout<<"str1="<<str1<<endl;
   
   if(str1.compare("P6")!=0) //comparing magic number
   {
@@ -354,6 +351,7 @@ int main(int argc, char* argv[])
       }
     }
   }
+  cout<<"File read"<<endl;
 
   //COLOR CONVERSION
   //RGB->XYZ->CIE-L*ab
@@ -366,6 +364,7 @@ int main(int argc, char* argv[])
   pixel_XYZ* Pixel_LAB=XYZ_LAB(Pixel_XYZ, img_ht, img_wd);
   time_t t10=time(NULL);
 
+cout<<"Colorspace conversion done"<<endl;
   //IMPLEMENTING SLIC ALGORITHM
   int N = img_ht*img_wd;  //number of pixels in the images
   int K = 400;    //number of superpixels desired
@@ -373,16 +372,16 @@ int main(int argc, char* argv[])
   int S= floor(sqrt(N/K));//size of each superpixel
   float m= 10;    //compactness control constant
   
-  int k1=(1+img_ht/S)*(1+ img_wd/S);
+  int k1=(1+img_ht/S)*(1+ img_wd/S);//actual number of superpixels
   //initial labelling
   int* labelled_ini = (int*)malloc(N*sizeof(int));  //row major wise storing the labels
-  int* labelled_prev= (int*)malloc(N*sizeof(int));  //store previous epochs values
+
   vector<int> label_vector;
   
   for(int i=0;i<(1+img_ht/S)*(1+img_wd/S);i++)
-    label_vector.push_back(i);
+    label_vector.push_back(i);//store all indices of labels
 
-  random_shuffle(label_vector.begin(),label_vector.end());
+  random_shuffle(label_vector.begin(),label_vector.end());//randomizing them
   
   vector<int>::iterator it=label_vector.begin();
 
@@ -405,13 +404,18 @@ int main(int argc, char* argv[])
       ++it; 
     }
   }
-
+cout<<"Initial labelling done"<<endl;
   //get initial cluster centers
  // cout<<"k1= "<<k1<<" "<<(1+img_ht/S)*(1+img_wd/S)<<endl;
   point* centers_curr=(point*)malloc(k1*sizeof(point));
   point* centers_prev;
   time_t t0= time(NULL);
   centers_curr=initial_centre(label_vector, labelled_ini, N, img_wd, centers_curr);
+
+  cout<<"Initial centres found"<<endl;
+for(int i=0; i<k1;i++)
+cout<<"("<<centers_curr[i].x<<","<<centers_curr[i].y<<")"<<endl;
+
   time_t t1= time(NULL);
   // for(int j=0; j<k1; j++)
   //   cout<<centers_curr[j].x<<" "<<centers_curr[j].y<<endl;
@@ -493,29 +497,38 @@ int main(int argc, char* argv[])
   time_t t5, t6, t4;
   for(int epoch=0; epoch<num_iterations; epoch++)
   {
+    cout<<"new epoch starts"<<endl;
     centers_prev=centers_curr;
-    cout<<"epoch = "<<epoch<<" , ";
+    cout<<"epoch = "<<epoch<<endl;
     t4 =time(NULL);
-
-    for(int i=0; i<k1;i++)//for every cluster center
+    
+for(int i=0; i<k1;i++)//for every cluster center
     {
-      for(int j=0;j<N;j++)//for every point in image
-      {
-        int x_center=centers_curr[i].x;
+	//cout<<"i="<<i<<" ";
+	int x_center=centers_curr[i].x;
+	//cout<<x_center<<" ";
         int y_center=centers_curr[i].y;
+	//cout<<y_center<<" ";
         int index_center=y_center*img_wd+x_center;
-        int x_coord=j%img_wd;
+       
+      for(int j=0;j<N;j++)//for every point in image
+      {	
+	//cout<<i<<" "<<j;
+         int x_coord=j%img_wd;
+	//cout<<x_coord<<" ";
         int y_coord=j/img_wd;
+	//cout<<y_coord<<" ";
         float d_c = pow(pow((Pixel_LAB[index_center].x-Pixel_LAB[j].x),2) + pow((Pixel_LAB[index_center].y-Pixel_LAB[j].y),2) + pow((Pixel_LAB[index_center].z-Pixel_LAB[j].z),2),0.5); //color proximity;
         float d_s = pow(pow(x_coord-x_center,2)+pow(y_coord-y_center,2),0.5); //spatial proximity
 
         D[i][j]=pow(pow(d_c,2)+pow(m*d_s/S,2),0.5);
 
-       // cout<<D[i][j]<<" ";
+  //     cout<<D[i][j];
       }
-      //cout<<endl;
+//cout<<endl;
     }
     t5 =time(NULL);
+	//cout<<"D calculation done"<<endl;
 
     //pixel assignment
     //for every point in image, find min D in 2Sx 2S neighbourhood
@@ -539,11 +552,11 @@ int main(int argc, char* argv[])
       labelled_ini[j]=labelled_ini[index_center];
     }
     t6 =time(NULL);
-
+	cout<<"pixel assignment done"<<endl;
 
     //new centers calculated
     centers_curr=initial_centre(label_vector, labelled_ini, N, img_wd, centers_curr);
-
+	cout<<"new centers calculated"<<endl;
 
   HANDLE_ERROR(cudaMemcpy(labelled_gpu, labelled_ini, N*sizeof(int), cudaMemcpyHostToDevice));
   HANDLE_ERROR(cudaMemcpy(labelled_tmp_gpu, labelled_ini, N*sizeof(int), cudaMemcpyHostToDevice));
@@ -574,6 +587,8 @@ int main(int argc, char* argv[])
   //error calculation
   float error= error_calculation(centers_curr, centers_prev,k1);
   cout<<"error = "<<error<<endl;
+  cout<<"error calculated"<<endl;
+  cout<<endl;
   }
 
   pixel_RGB *rgb=(pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
@@ -622,13 +637,13 @@ int main(int argc, char* argv[])
       //cout<<rgb[j].r<<" "<<rgb[j].g<<" "<<rgb[j].b<<endl;}
   
   ofs.close();
-  
+ /* 
   cout<<" Colorspace conversion: "<<double(t10 - t9)<<" sec"<<endl;
   cout<<" Getting centers:"<<double(t1-t0)<<" sec"<<endl;
   cout<<" Perturbing centers:" <<double(t3- t2)<<" sec"<<endl;
   cout<<" Distance measure calculation: "<<double(t5- t4)<<"sec"<<endl;
   cout<<" New pixel assignment:"<<double(t6-t5)<<" sec"<<endl;
   cout<<" Label2rgb:"<<double(t8 -t7)<<" sec"<<endl;
-  
+  */
   return 0;
 }
