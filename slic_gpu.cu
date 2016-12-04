@@ -46,126 +46,7 @@ struct point
   int y;  //y-coordinate
 };
 
-point* initial_centre(vector<int> label_vector, int* labelled_ini, int N, int img_wd, int k1 )  //find centers for the clusters
-{
-  point* centers_curr=new point[k1];//(point*)malloc(k1*sizeof(point));
-    for(vector<int>::iterator it=label_vector.begin();it!=label_vector.end();++it)  //for every cluster as per label
-  {
-    int pixel_count=0;  //count all pixels with the same label
-    float x_mean=0, y_mean=0; //find the center coordinates here
-    int *p=find(labelled_ini, labelled_ini+N,*it);  //find the current label
-    cout<<"pixel label="<<*p;
-    while(p!=labelled_ini+N) //if not out of the array
-    { //cout<<*p<<" FOUND at: "<<p-labelled_ini<<endl;
-      int index=p-labelled_ini;//find index 
-      int x_coord=index%img_wd;//find x_coord
-      int y_coord=index/img_wd;//find y_coord
-      pixel_count++;  //go to next pixel
-      x_mean+=x_coord;  //add all x_coord s
-      y_mean+=y_coord;  //add all y_coord s
-      p=find(p+1, labelled_ini+N,*it);//find next p 
-    }
-    x_mean=x_mean/pixel_count;//mean of x coords
-    y_mean=y_mean/pixel_count;//mean of y coords
-    centers_curr[*p].x=floor(x_mean);//store the centres
-    centers_curr[*p].y=floor(y_mean);//store the centres, as per label number
-    cout<<" means= ("<<centers_curr[*p].x<<","<<centers_curr[*p].y<<")"<<endl;
-  }
-  return centers_curr;
-}
 
-__global__ void squared_elem_add(int* G1_gpu, int* G2_gpu,int* G_gpu,int img_wd, int img_ht)
-{
-  size_t col=blockIdx.x*blockDim.x + threadIdx.x; //column
-  size_t row=blockIdx.y*blockDim.y + threadIdx.y; //row
-
-  size_t idx=row*img_wd+col;  //index
-
-  if(col>img_wd || row>img_ht)
-    return;
-
-  G_gpu[idx]=G1_gpu[idx]*G1_gpu[idx] + G2_gpu[idx]*G2_gpu[idx]; //adding G1 and G2
-}
-
-__host__ __device__ int padding(int* labelled, int x_coord, int y_coord, int img_width, int img_height) 
-{ int val=0;
-  if(x_coord< img_width && y_coord <img_height && x_coord>=0 && y_coord>=0)
-  {
-    val=labelled[y_coord*img_width+x_coord];
-  }
-  return val;
-}
-
-__global__ void vertical_conv(int* labelled_in, int* labelled_out,int img_wd, int img_ht, float* kernel, int k)
-{
-  size_t col=blockIdx.x*blockDim.x + threadIdx.x;
-  size_t row=blockIdx.y*blockDim.y + threadIdx.y;
-
-  size_t idx=row*img_wd+col;
-
-  float tmp=0;    
-  
-  if(row<img_ht && col<img_wd){
-
-    for(int l=0;l<k;l++)
-    {
-      int val=padding(labelled_in, col, (row+l-(k-1)/2), img_wd, img_ht);
-      tmp+=val * kernel[l];
-    }
-
-    labelled_out[idx]=tmp;
-  }
-}     
-
-
-__global__ void horizontal_conv(int* labelled_in, int* labelled_out, int img_wd, int img_ht, float* kernel, int k)
-{
-  size_t col=blockIdx.x*blockDim.x + threadIdx.x;
-  size_t row=blockIdx.y*blockDim.y + threadIdx.y;
-  size_t idx=row*img_wd+col;
-
-  float tmp=0;
-
-  if(row<img_ht && col<img_wd)
-  {
-    for(int l=0; l<k;l++)
-    {
-      int val=padding(labelled_in, col+ l-(k-1)/2, row, img_wd, img_ht);
-      tmp+=val * kernel[l];
-    }
-    labelled_out[idx]=tmp;
-  }
-}
-
-
-int max_index(int* array, int size, int x1, int x2, int y1, int y2, int img_wd)
-{
-  int index=0;
-  //finding max values from (X1,y1) to (X2,y2)
-  for(int i=0;i<size;i++)
-  {
-    if(int(i%img_wd)>=x1 && int(i%img_wd)<=x2 && int(i/img_wd)>=y1 && int(i/img_wd)<=y2)
-    {  
-      if(array[i]>=array[index])
-        index=i;
-    }
-  }
-  return index;
-}
-
-int min_index(int* array, int size, int x1, int x2, int y1, int y2, int img_wd)
-{
-  int index=0;
-  for(int i=0;i<size;i++)
-  {
-    if(int(i%img_wd)>=x1 && int(i%img_wd)<=x2 && int(i/img_wd)>=y1 && int(i/img_wd)<=y2)
-    { 
-      if(array[i]<array[index])
-        index=i;
-    }
-  }
-  return index;
-}
 
 //color space conversion from RGB to XYZ
 pixel_XYZ* RGB_XYZ(pixel_RGB* img ,int ht ,int wd)
@@ -257,19 +138,111 @@ pixel_XYZ* XYZ_LAB(pixel_XYZ* img ,int ht ,int wd)
   }
   return LAB_img;
 }
-
-//error calculation
-float error_calculation(point* centers_curr,point* centers_prev,int N)
+point* initial_centre(vector<int> label_vector, int* labelled_ini, int N, int img_wd, point* centers_curr)
 {
-  float err=0;
-  for(int i=0;i<N;i++)
+  // point* centers_curr=(point*)malloc(k1*sizeof(point));
+for(vector<int>::iterator it=label_vector.begin();it!=label_vector.end();++it)  //for every cluster as per label
   {
-    err+=pow((centers_curr[i].x-centers_prev[i].x),2) + pow((centers_curr[i].y-centers_prev[i].y),2);
-    cout<<i<<" "<<"curr = ("<<centers_curr[i].x<<","<<centers_curr[i].y<<") , prev= ("<<centers_prev[i].x<<","<<centers_prev[i].y<<")"<<endl;
+    int pixel_count=0;  //count all pixels with the same label
+    float x_mean=0, y_mean=0; //find the center coordinates here
+    int *p=find(labelled_ini, labelled_ini+N,*it);  //find the current label
+    int label=*p;
+    while(p!=labelled_ini+N) //if not out of the array
+    { //cout<<*p<<" FOUND at: "<<p-labelled_ini<<endl;
+      int index=p-labelled_ini;//find index 
+      int x_coord=index%img_wd;//find x_coord
+      int y_coord=index/img_wd;//find y_coord
+      pixel_count++;  //go to next pixel
+      x_mean+=x_coord;  //add all x_coord s
+      y_mean+=y_coord;  //add all y_coord s
+     p=find(p+1, labelled_ini+N,*it);//find next p 
+    }
+    x_mean=x_mean/pixel_count;//mean of x coords
+    y_mean=y_mean/pixel_count;//mean of y coords
+    // point pt;
+    // pt.x=floor(x_mean); pt.y=floor(y_mean);
+    // centers_curr.insert(*p,pt);
+    centers_curr[label].x=floor(x_mean);//store the centres
+    centers_curr[label].y=floor(y_mean);//store the centres, as per label number
+    // cout<<"pixel label="<<*p<<" means= ("<<centers_curr[label].x<<","<<centers_curr[label].y<<")"<<endl;
   }
+  return centers_curr;
+}
 
-  err=((float)err)/N;
-  return err;
+int min_index(int* array, int size, int x1, int x2, int y1, int y2, int img_wd)
+{
+  int index=0;
+  for(int i=0;i<size;i++)
+  {
+    if(int(i%img_wd)>=x1 && int(i%img_wd)<=x2 && int(i/img_wd)>=y1 && int(i/img_wd)<=y2)
+    { 
+      if(array[i]<array[index])
+        index=i;
+    }
+  }
+  return index;
+}
+
+__global__ void squared_elem_add(int* G1_gpu, int* G2_gpu,int* G_gpu,int img_wd, int img_ht)
+{
+  size_t col=blockIdx.x*blockDim.x + threadIdx.x; //column
+  size_t row=blockIdx.y*blockDim.y + threadIdx.y; //row
+
+  size_t idx=row*img_wd+col;  //index
+
+  if(col>img_wd || row>img_ht)
+    return;
+
+  G_gpu[idx]=G1_gpu[idx]*G1_gpu[idx] + G2_gpu[idx]*G2_gpu[idx]; //adding G1 and G2
+}
+
+__host__ __device__ int padding(int* labelled, int x_coord, int y_coord, int img_width, int img_height) 
+{ int val=0;
+  if(x_coord< img_width && y_coord <img_height && x_coord>=0 && y_coord>=0)
+  {
+    val=labelled[y_coord*img_width+x_coord];
+  }
+  return val;
+}
+
+__global__ void vertical_conv(int* labelled_in, int* labelled_out,int img_wd, int img_ht, float* kernel, int k)
+{
+  size_t col=blockIdx.x*blockDim.x + threadIdx.x;
+  size_t row=blockIdx.y*blockDim.y + threadIdx.y;
+
+  size_t idx=row*img_wd+col;
+
+  float tmp=0;    
+  
+  if(row<img_ht && col<img_wd){
+
+    for(int l=0;l<k;l++)
+    {
+      int val=padding(labelled_in, col, (row+l-(k-1)/2), img_wd, img_ht);
+      tmp+=val * kernel[l];
+    }
+
+    labelled_out[idx]=tmp;
+  }
+}     
+
+__global__ void horizontal_conv(int* labelled_in, int* labelled_out, int img_wd, int img_ht, float* kernel, int k)
+{
+  size_t col=blockIdx.x*blockDim.x + threadIdx.x;
+  size_t row=blockIdx.y*blockDim.y + threadIdx.y;
+  size_t idx=row*img_wd+col;
+
+  float tmp=0;
+
+  if(row<img_ht && col<img_wd)
+  {
+    for(int l=0; l<k;l++)
+    {
+      int val=padding(labelled_in, col+ l-(k-1)/2, row, img_wd, img_ht);
+      tmp+=val * kernel[l];
+    }
+    labelled_out[idx]=tmp;
+  }
 }
 
 int main(int argc, char* argv[])
@@ -405,23 +378,18 @@ cout<<"Colorspace conversion done"<<endl;
       ++it; 
     }
   }
-cout<<"Initial labelling done"<<endl;
-  //get initial cluster centers
- // cout<<"k1= "<<k1<<" "<<(1+img_ht/S)*(1+img_wd/S)<<endl;
-  // point* centers_curr=(point*)malloc(k1*sizeof(point));
-  point* centers_prev;
-  // time_t t0= time(NULL);
-// for(int j=0; j<k1; j++)
-  // cout<<centers_curr[j].x<<" "<<centers_curr[j].y<<endl;
-
-  point* centers_curr=initial_centre(label_vector, labelled_ini, N, img_wd, k1);
+ cout<<"Initial labelling done"<<endl;
+point* centers_curr=(point*)malloc(k1*sizeof(point));
+centers_curr=initial_centre(label_vector,labelled_ini,  N, img_wd, centers_curr);
 
   cout<<"Initial centres found"<<endl;
 
   // time_t t1= time(NULL);
-  for(int j=0; j<k1; j++)
-    cout<<centers_curr[j].x<<" "<<centers_curr[j].y<<endl;
+ // for(int i=0;i<k1;i++)//vector<point>::iterator it=centers_curr.begin();it!=centers_curr.end();++it)  //for every cluster as per label
+ //    cout<<i<<" "<<centers_curr[i].x<<" "<<centers_curr[i].y<<endl;
+
   //perturb centers in a 3x3 neighborhood
+
 
   float *K1 = (float *)malloc(3 *sizeof(float)); 
   float *K2 = (float *)malloc(3 *sizeof(float));
@@ -486,90 +454,8 @@ cout<<"Initial labelling done"<<endl;
     centers_curr[i].y=(floor)(index/img_wd);
 
   }
-  // time_t t3 =time(NULL);
 
-  int num_iterations=0;
-
-  float** D = (float**) malloc(sizeof(float*)*k1);
-
-  for(int i=0; i<k1; i++)
-    D[i]=(float*) malloc(sizeof(float)*N);
-
-  // time_t t5, t6, t4;
-  for(int epoch=0; epoch<num_iterations; epoch++)
-  {
-    cout<<"new epoch starts"<<endl;
-    centers_prev=centers_curr;
-    cout<<"epoch = "<<epoch<<endl;
-    // t4 =time(NULL);
-  cout<<"k1="<<k1<<endl;
-
-for(int i=0; i<k1;i++)//for every cluster center
-    {
-      // cout<<"enters for block"<<endl;
-  // cout<<"i="<<i<<" ";
-  int x_center=centers_curr[i].x;
-  //cout<<x_center<<" ";
-        int y_center=centers_curr[i].y;
-  //cout<<y_center<<" ";
-        int index_center=y_center*img_wd+x_center;
-       
-      for(int j=0;j<N;j++)//for every point in image
-      { 
-  //cout<<i<<" "<<j;
-         int x_coord=j%img_wd;
-  //cout<<x_coord<<" ";
-        int y_coord=j/img_wd;
-  //cout<<y_coord<<" ";
-        float d_c = pow(pow((Pixel_LAB[index_center].x-Pixel_LAB[j].x),2) + pow((Pixel_LAB[index_center].y-Pixel_LAB[j].y),2) + pow((Pixel_LAB[index_center].z-Pixel_LAB[j].z),2),0.5); //color proximity;
-        float d_s = pow(pow(x_coord-x_center,2)+pow(y_coord-y_center,2),0.5); //spatial proximity
-
-        D[i][j]=pow(pow(d_c,2)+pow(m*d_s/S,2),0.5);
-
-  //     cout<<D[i][j];
-      }
-//cout<<endl;
-    }
-    // t5 =time(NULL);
-  //cout<<"D calculation done"<<endl;
-
-    //pixel assignment
-    //for every point in image, find min D in 2Sx 2S neighbourhood
-    for(int j=0;j<N;j++)
-    {
-      float min_val=D[0][j];
-      int min_index=0;
-      for(int i=0; i<k1;i++)
-      {
-        if(abs(centers_curr[i].x-(j%img_wd))<S && abs(centers_curr[i].y - (j/img_wd))<S)
-        {
-          if(D[i][j]<min_val)
-          min_val=D[i][j], min_index=i;
-        }
-      } 
-      //min_index found
-      //assign the label of center to the pixel
-      int x_coord=centers_curr[min_index].x;
-      int y_coord=centers_curr[min_index].y;
-     // cout<<"x = "<<x_coord<<" , y = "<<y_coord<<endl;
-      int index_center=x_coord+y_coord*img_wd;
-      labelled_ini[j]=labelled_ini[index_center];
-    }
-    // t6 =time(NULL);
-  cout<<"pixel assignment done"<<endl;
-
-    //new centers calculated
-  centers_curr=initial_centre(label_vector, labelled_ini, N, img_wd, k1);
-  cout<<"new centers calculated"<<endl;
- 
-  //error calculation
-  float error= error_calculation(centers_curr, centers_prev,k1);
-  cout<<"error = "<<error<<endl;
-  cout<<"error calculated"<<endl;
-  cout<<endl;
-  }
-
-  pixel_RGB *rgb=(pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
+   pixel_RGB *rgb=(pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
  
 
   //getting labelled image
@@ -615,13 +501,13 @@ for(int i=0; i<k1;i++)//for every cluster center
       //cout<<rgb[j].r<<" "<<rgb[j].g<<" "<<rgb[j].b<<endl;}
   
   ofs.close();
- /* 
-  cout<<" Colorspace conversion: "<<double(t10 - t9)<<" sec"<<endl;
-  cout<<" Getting centers:"<<double(t1-t0)<<" sec"<<endl;
-  cout<<" Perturbing centers:" <<double(t3- t2)<<" sec"<<endl;
-  cout<<" Distance measure calculation: "<<double(t5- t4)<<"sec"<<endl;
-  cout<<" New pixel assignment:"<<double(t6-t5)<<" sec"<<endl;
-  cout<<" Label2rgb:"<<double(t8 -t7)<<" sec"<<endl;
-  */
+//  /* 
+  // cout<<" Colorspace conversion: "<<double(t10 - t9)<<" sec"<<endl;
+  // cout<<" Getting centers:"<<double(t1-t0)<<" sec"<<endl;
+  // cout<<" Perturbing centers:" <<double(t3- t2)<<" sec"<<endl;
+  // cout<<" Distance measure calculation: "<<double(t5- t4)<<"sec"<<endl;
+  // cout<<" New pixel assignment:"<<double(t6-t5)<<" sec"<<endl;
+  // cout<<" Label2rgb:"<<double(t8 -t7)<<" sec"<<endl;
+  
   return 0;
 }
