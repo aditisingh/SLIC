@@ -26,66 +26,65 @@ using namespace std;
 // storing RGB values for rgb colorspace images
 struct pixel_RGB
 {
-  unsigned char r;	//Red values
-  unsigned char g;	//Green values
-  unsigned char b;	//Blue Values
+  unsigned char r;  //Red values
+  unsigned char g;  //Green values
+  unsigned char b;  //Blue Values
 };
 
 // storing values for xyz and lab colorspace images
 struct pixel_XYZ
 {
-  float x;	//X for XYZ colorspace, L for LAB colorspace
-  float y;	//Y for XYZ colorspace, A for LAB colorspace
-  float z;	//Z for XYZ colorspace, B for LAB colorspace
+  float x;  //X for XYZ colorspace, L for LAB colorspace
+  float y;  //Y for XYZ colorspace, A for LAB colorspace
+  float z;  //Z for XYZ colorspace, B for LAB colorspace
 };
 
 //store coordinates for each cluster centres
 struct point
 { 
-  int x;	//x-ccordinate
-  int y;	//y-coordinate
+  int x;  //x-ccordinate
+  int y;  //y-coordinate
 };
 
-point* initial_centre(vector<int> label_vector, int* labelled_ini, int N, int img_wd,point* centers_curr )	//find centers for the clusters
+point* initial_centre(vector<int> label_vector, int* labelled_ini, int N, int img_wd, int k1 )  //find centers for the clusters
 {
-  
-  int ctr_cnt=0;	//center counts
-  for(vector<int>::iterator it=label_vector.begin();it!=label_vector.end();++it)	//for every cluster as per label
+  point* centers_curr=new point[k1];//(point*)malloc(k1*sizeof(point));
+    for(vector<int>::iterator it=label_vector.begin();it!=label_vector.end();++it)  //for every cluster as per label
   {
-    int pixel_count=0;	//count all pixels with the same label
-    float x_mean=0, y_mean=0;	//find the center coordinates here
-    int *p=find(labelled_ini, labelled_ini+N,*it);	//find the current label
+    int pixel_count=0;  //count all pixels with the same label
+    float x_mean=0, y_mean=0; //find the center coordinates here
+    int *p=find(labelled_ini, labelled_ini+N,*it);  //find the current label
+    cout<<"pixel label="<<*p;
     while(p!=labelled_ini+N) //if not out of the array
     { //cout<<*p<<" FOUND at: "<<p-labelled_ini<<endl;
       int index=p-labelled_ini;//find index 
       int x_coord=index%img_wd;//find x_coord
       int y_coord=index/img_wd;//find y_coord
-      pixel_count++;	//go to next pixel
-      x_mean+=x_coord;	//add all x_coord s
-      y_mean+=y_coord;	//add all y_coord s
+      pixel_count++;  //go to next pixel
+      x_mean+=x_coord;  //add all x_coord s
+      y_mean+=y_coord;  //add all y_coord s
       p=find(p+1, labelled_ini+N,*it);//find next p 
     }
     x_mean=x_mean/pixel_count;//mean of x coords
     y_mean=y_mean/pixel_count;//mean of y coords
-    centers_curr[ctr_cnt].x=floor(x_mean);//store the centres
-    centers_curr[ctr_cnt].y=floor(y_mean);
-    // cout<<"means="<<centers_curr[ctr_cnt].x<<" "<<centers_curr[ctr_cnt].y<<" "<<ctr_cnt<<endl;
-    ctr_cnt++;
+    centers_curr[*p].x=floor(x_mean);//store the centres
+    centers_curr[*p].y=floor(y_mean);//store the centres, as per label number
+    cout<<" means= ("<<centers_curr[*p].x<<","<<centers_curr[*p].y<<")"<<endl;
   }
   return centers_curr;
 }
 
 __global__ void squared_elem_add(int* G1_gpu, int* G2_gpu,int* G_gpu,int img_wd, int img_ht)
 {
-  size_t col=blockIdx.x*blockDim.x + threadIdx.x;	//column
-  size_t row=blockIdx.y*blockDim.y + threadIdx.y;	//row
+  size_t col=blockIdx.x*blockDim.x + threadIdx.x; //column
+  size_t row=blockIdx.y*blockDim.y + threadIdx.y; //row
 
-  size_t idx=row*img_wd+col;	//index
+  size_t idx=row*img_wd+col;  //index
 
   if(col>img_wd || row>img_ht)
     return;
 
-  G_gpu[idx]=G1_gpu[idx]*G1_gpu[idx] + G2_gpu[idx]*G2_gpu[idx];	//adding G1 and G2
+  G_gpu[idx]=G1_gpu[idx]*G1_gpu[idx] + G2_gpu[idx]*G2_gpu[idx]; //adding G1 and G2
 }
 
 __host__ __device__ int padding(int* labelled, int x_coord, int y_coord, int img_width, int img_height) 
@@ -266,14 +265,16 @@ float error_calculation(point* centers_curr,point* centers_prev,int N)
   for(int i=0;i<N;i++)
   {
     err+=pow((centers_curr[i].x-centers_prev[i].x),2) + pow((centers_curr[i].y-centers_prev[i].y),2);
+    cout<<i<<" "<<"curr = ("<<centers_curr[i].x<<","<<centers_curr[i].y<<") , prev= ("<<centers_prev[i].x<<","<<centers_prev[i].y<<")"<<endl;
   }
+
   err=((float)err)/N;
   return err;
 }
 
 int main(int argc, char* argv[])
 {
-  time_t start=time(NULL);
+  // time_t start=time(NULL);
 
   if(argc != 2) //there should be three arguments
     return 1; //exit and return an error
@@ -357,12 +358,12 @@ int main(int argc, char* argv[])
   //RGB->XYZ->CIE-L*ab
 
   //RGB to XYZ
-  time_t t9= time(NULL);
+  // time_t t9= time(NULL);
   pixel_XYZ *Pixel_XYZ=RGB_XYZ(Pixel, img_ht, img_wd);
   
   //XYZ TO CIE-L*ab
   pixel_XYZ* Pixel_LAB=XYZ_LAB(Pixel_XYZ, img_ht, img_wd);
-  time_t t10=time(NULL);
+  // time_t t10=time(NULL);
 
 cout<<"Colorspace conversion done"<<endl;
   //IMPLEMENTING SLIC ALGORITHM
@@ -407,19 +408,19 @@ cout<<"Colorspace conversion done"<<endl;
 cout<<"Initial labelling done"<<endl;
   //get initial cluster centers
  // cout<<"k1= "<<k1<<" "<<(1+img_ht/S)*(1+img_wd/S)<<endl;
-  point* centers_curr=(point*)malloc(k1*sizeof(point));
+  // point* centers_curr=(point*)malloc(k1*sizeof(point));
   point* centers_prev;
-  time_t t0= time(NULL);
-  centers_curr=initial_centre(label_vector, labelled_ini, N, img_wd, centers_curr);
+  // time_t t0= time(NULL);
+// for(int j=0; j<k1; j++)
+  // cout<<centers_curr[j].x<<" "<<centers_curr[j].y<<endl;
+
+  point* centers_curr=initial_centre(label_vector, labelled_ini, N, img_wd, k1);
 
   cout<<"Initial centres found"<<endl;
-for(int i=0; i<k1;i++)
-cout<<"("<<centers_curr[i].x<<","<<centers_curr[i].y<<")"<<endl;
 
-  time_t t1= time(NULL);
-  // for(int j=0; j<k1; j++)
-  //   cout<<centers_curr[j].x<<" "<<centers_curr[j].y<<endl;
-
+  // time_t t1= time(NULL);
+  for(int j=0; j<k1; j++)
+    cout<<centers_curr[j].x<<" "<<centers_curr[j].y<<endl;
   //perturb centers in a 3x3 neighborhood
 
   float *K1 = (float *)malloc(3 *sizeof(float)); 
@@ -461,7 +462,7 @@ cout<<"("<<centers_curr[i].x<<","<<centers_curr[i].y<<")"<<endl;
   dim3 DimGrid(ceil(img_wd/thread_block),ceil(img_ht/thread_block),1); //image saved as a 2D grid
   dim3 DimBlock(thread_block,thread_block,1);
 
-  time_t t2 =time(NULL);
+  // time_t t2 =time(NULL);
   vertical_conv<<<DimGrid,DimBlock>>>(labelled_gpu, labelled_tmp_gpu,img_wd, img_ht,K1_gpu,3);
   horizontal_conv<<<DimGrid, DimBlock>>>(labelled_tmp_gpu, G1_gpu, img_wd, img_ht, K2_gpu, 3);
 
@@ -485,39 +486,41 @@ cout<<"("<<centers_curr[i].x<<","<<centers_curr[i].y<<")"<<endl;
     centers_curr[i].y=(floor)(index/img_wd);
 
   }
-  time_t t3 =time(NULL);
+  // time_t t3 =time(NULL);
 
-  int num_iterations=10;
+  int num_iterations=0;
 
   float** D = (float**) malloc(sizeof(float*)*k1);
 
   for(int i=0; i<k1; i++)
     D[i]=(float*) malloc(sizeof(float)*N);
 
-  time_t t5, t6, t4;
+  // time_t t5, t6, t4;
   for(int epoch=0; epoch<num_iterations; epoch++)
   {
     cout<<"new epoch starts"<<endl;
     centers_prev=centers_curr;
     cout<<"epoch = "<<epoch<<endl;
-    t4 =time(NULL);
-    
+    // t4 =time(NULL);
+  cout<<"k1="<<k1<<endl;
+
 for(int i=0; i<k1;i++)//for every cluster center
     {
-	//cout<<"i="<<i<<" ";
-	int x_center=centers_curr[i].x;
-	//cout<<x_center<<" ";
+      // cout<<"enters for block"<<endl;
+  // cout<<"i="<<i<<" ";
+  int x_center=centers_curr[i].x;
+  //cout<<x_center<<" ";
         int y_center=centers_curr[i].y;
-	//cout<<y_center<<" ";
+  //cout<<y_center<<" ";
         int index_center=y_center*img_wd+x_center;
        
       for(int j=0;j<N;j++)//for every point in image
-      {	
-	//cout<<i<<" "<<j;
+      { 
+  //cout<<i<<" "<<j;
          int x_coord=j%img_wd;
-	//cout<<x_coord<<" ";
+  //cout<<x_coord<<" ";
         int y_coord=j/img_wd;
-	//cout<<y_coord<<" ";
+  //cout<<y_coord<<" ";
         float d_c = pow(pow((Pixel_LAB[index_center].x-Pixel_LAB[j].x),2) + pow((Pixel_LAB[index_center].y-Pixel_LAB[j].y),2) + pow((Pixel_LAB[index_center].z-Pixel_LAB[j].z),2),0.5); //color proximity;
         float d_s = pow(pow(x_coord-x_center,2)+pow(y_coord-y_center,2),0.5); //spatial proximity
 
@@ -527,8 +530,8 @@ for(int i=0; i<k1;i++)//for every cluster center
       }
 //cout<<endl;
     }
-    t5 =time(NULL);
-	//cout<<"D calculation done"<<endl;
+    // t5 =time(NULL);
+  //cout<<"D calculation done"<<endl;
 
     //pixel assignment
     //for every point in image, find min D in 2Sx 2S neighbourhood
@@ -548,42 +551,17 @@ for(int i=0; i<k1;i++)//for every cluster center
       //assign the label of center to the pixel
       int x_coord=centers_curr[min_index].x;
       int y_coord=centers_curr[min_index].y;
+     // cout<<"x = "<<x_coord<<" , y = "<<y_coord<<endl;
       int index_center=x_coord+y_coord*img_wd;
       labelled_ini[j]=labelled_ini[index_center];
     }
-    t6 =time(NULL);
-	cout<<"pixel assignment done"<<endl;
+    // t6 =time(NULL);
+  cout<<"pixel assignment done"<<endl;
 
     //new centers calculated
-    centers_curr=initial_centre(label_vector, labelled_ini, N, img_wd, centers_curr);
-	cout<<"new centers calculated"<<endl;
-
-  HANDLE_ERROR(cudaMemcpy(labelled_gpu, labelled_ini, N*sizeof(int), cudaMemcpyHostToDevice));
-  HANDLE_ERROR(cudaMemcpy(labelled_tmp_gpu, labelled_ini, N*sizeof(int), cudaMemcpyHostToDevice));
-
-  vertical_conv<<<DimGrid,DimBlock>>>(labelled_gpu, labelled_tmp_gpu,img_wd, img_ht,K1_gpu,3);
-  horizontal_conv<<<DimGrid, DimBlock>>>(labelled_tmp_gpu, G1_gpu, img_wd, img_ht, K2_gpu, 3);
-
-  vertical_conv<<<DimGrid,DimBlock>>>(labelled_gpu, labelled_tmp_gpu,img_wd, img_ht,K2_gpu,3);
-  horizontal_conv<<<DimGrid, DimBlock>>>(labelled_tmp_gpu, G2_gpu, img_wd, img_ht, K1_gpu, 3);
-
-  squared_elem_add<<<DimGrid,DimBlock>>>(G1_gpu,G2_gpu,G_gpu,img_wd,img_ht);
-
-  HANDLE_ERROR(cudaMemcpy(G, G_gpu, N*sizeof(int), cudaMemcpyDeviceToHost));
-
-  for(int i=0; i<k1;i++)  //for every component
-  {
-    int x1=centers_curr[i].x-1;
-    int x2=centers_curr[i].x+1;
-    int y1=centers_curr[i].y-1;
-    int y2=centers_curr[i].y+1;
-
-    int index = min_index(G, N, x1, x2, y1, y2, img_wd);
-
-    centers_curr[i].x=(floor)(index%img_wd);
-    centers_curr[i].y=(floor)(index/img_wd);
-
-  }
+  centers_curr=initial_centre(label_vector, labelled_ini, N, img_wd, k1);
+  cout<<"new centers calculated"<<endl;
+ 
   //error calculation
   float error= error_calculation(centers_curr, centers_prev,k1);
   cout<<"error = "<<error<<endl;
@@ -595,7 +573,7 @@ for(int i=0; i<k1;i++)//for every cluster center
  
 
   //getting labelled image
-  time_t t7 =time(NULL);
+  // time_t t7 =time(NULL);
 
   float alpha=0.4;
   for(int i=0;i<img_ht*img_wd;i++)
@@ -626,7 +604,7 @@ for(int i=0; i<k1;i++)//for every cluster center
 
    
   }
-  time_t t8 =time(NULL);
+  // time_t t8 =time(NULL);
   //OUTPUT STORAGE
   ofstream ofs;
   ofs.open("output.ppm", ofstream::out);
