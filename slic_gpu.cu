@@ -245,6 +245,18 @@ __global__ void horizontal_conv(int* labelled_in, int* labelled_out, int img_wd,
   }
 }
 
+float error_calculation(point* centers_curr,point* centers_prev,int N)
+{
+  float err=0;
+  for(int i=0;i<N;i++)
+  {
+    err+=pow((centers_curr[i].x-centers_prev[i].x),2) + pow((centers_curr[i].y-centers_prev[i].y),2);
+    // cout<<i<<" "<<"curr = ("<<centers_curr[i].x<<","<<centers_curr[i].y<<") , prev= ("<<centers_prev[i].x<<","<<centers_prev[i].y<<")"<<endl;
+  }
+
+  err=((float)err)/N;
+  return err;
+}
 int main(int argc, char* argv[])
 {
   // time_t start=time(NULL);
@@ -380,6 +392,8 @@ cout<<"Colorspace conversion done"<<endl;
   }
  cout<<"Initial labelling done"<<endl;
 point* centers_curr=(point*)malloc(k1*sizeof(point));
+point* centers_prev=(point*)malloc(k1*sizeof(point));
+
 centers_curr=initial_centre(label_vector,labelled_ini,  N, img_wd, centers_curr);
 
   cout<<"Initial centres found"<<endl;
@@ -455,12 +469,78 @@ centers_curr=initial_centre(label_vector,labelled_ini,  N, img_wd, centers_curr)
 
   }
 
+  int num_iterations=10;
+
+  float** D = (float**) malloc(sizeof(float*)*k1);
+
+  for(int i=0; i<k1; i++)
+    D[i]=(float*) malloc(sizeof(float)*N);
+
+//initializing the distance measures to +infinity
+
+  for(int i=0; i<k1;i++)//for every cluster center
+    { 
+      for(int j=0;j<N;j++)//for every point in image
+        D[i][j]=60000;
+    }
+
+for(int epoch=0; epoch<num_iterations; epoch++)
+  {
+    cout<<"epoch= "<<epoch<<endl;
+    // t4 =time(NULL);
+    centers_prev=centers_curr;
+
+    for(int i=0; i<k1;i++)//for every cluster center
+    {
+      int x_center=centers_curr[i].x;
+      int y_center=centers_curr[i].y;
+      int index_center=y_center*img_wd+x_center;
+      //for neighborhood search in 2Sx2S area around the center
+      for(int x_coord=x_center-S; x_coord<=x_center+S; x_coord++)
+      {
+        for(int y_coord=y_center-S; y_coord<=y_coord+S; y_coord++)
+        {
+        if(x_coord>0 && x_coord<=img_wd && y_coord>0 && y_coord<=img_ht)
+        {
+          int j=y_coord*img_wd+ x_coord;
+          float d_c = pow(pow((Pixel_LAB[index_center].x-Pixel_LAB[j].x),2) + pow((Pixel_LAB[index_center].y-Pixel_LAB[j].y),2) + pow((Pixel_LAB[index_center].z-Pixel_LAB[j].z),2),0.5); //color proximity;
+          float d_s = pow(pow(x_coord-x_center,2)+pow(y_coord-y_center,2),0.5); //spatial proximity
+          D[i][j]=pow(pow(d_c,2)+pow(m*d_s/S,2),0.5);
+        }
+        }
+      }
+      //cout<<endl;
+    }
+    cout<<"distance calculated"<<endl;
+    for(int j=0;j<N;j++)
+    {
+      float min_val=D[0][j];
+      int min_index=0;
+      for(int i=0; i<k1;i++)
+      {
+        if(D[i][j]<min_val)
+          min_val=D[i][j], min_index=i;
+      } 
+      //min_index found
+      //assign the label of center to the pixel
+      int x_coord=centers_curr[min_index].x;
+      int y_coord=centers_curr[min_index].y;
+      int index_center=x_coord+y_coord*img_wd;
+      labelled_ini[j]=labelled_ini[index_center];
+    }
+    cout<<"pixel assignment done"<<endl;
+
+      centers_curr=initial_centre(label_vector, labelled_ini, N, img_wd, centers_curr);
+      cout<<"cell centres calculated"<<endl;
+float error= error_calculation(centers_curr, centers_prev,k1);
+  cout<<"error = "<<error<<endl;
+  cout<<"error calculated"<<endl;
+  cout<<endl;
+
+  }
+
    pixel_RGB *rgb=(pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
  
-
-  //getting labelled image
-  // time_t t7 =time(NULL);
-
   float alpha=0.4;
   for(int i=0;i<img_ht*img_wd;i++)
   {
