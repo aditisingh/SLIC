@@ -338,7 +338,7 @@ float error_calculation(point* centers_curr,point* centers_prev,int N)
     cout<<"Colorspace conversion done"<<endl;
     //IMPLEMENTING SLIC ALGORITHM
     int N = img_ht*img_wd;  //number of pixels in the images
-    int K = 400;    //number of superpixels desired
+    int K = 1;    //number of superpixels desired
 
     int S= floor(sqrt(N/K));//size of each superpixel
     float m= 10;    //compactness control constant
@@ -483,21 +483,27 @@ float error_calculation(point* centers_curr,point* centers_prev,int N)
     //update cluster centres
     for(int i=0; i<k1;i++)
     {
-      int x_mean=0, y_mean=0, count=0;
+      int x_mean=0, y_mean=0, count=0, flag=0;
       for(int j=0; j<N; j++)
       {
-        int x_coord=j%img_wd;
-        int y_coord=j/img_wd;
-
         if(labels[j]=i)
         {
+          int x_coord=j%img_wd;
+          int y_coord=j/img_wd;
           x_mean+=x_coord;
           y_mean+=y_coord;
+          flag++;
+          cout<<i<<" "<<x_mean<<" "<<y_mean<<" "<<count<<endl;
           count++;
         }
       }
-      centers_curr[i].x=x_mean/count;
-      centers_curr[i].y=y_mean/count;
+      cout<<"count ="<<count<<endl;
+      if(flag)
+      {
+        centers_curr[i].x=x_mean/count;
+        centers_curr[i].y=y_mean/count;
+      }
+     
     }
     cout<<"cluster centers updated"<<endl;
 
