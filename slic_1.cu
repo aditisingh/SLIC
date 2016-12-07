@@ -523,16 +523,14 @@ float error_calculation(point* centers_curr,point* centers_prev,int N)
 
     pixel_RGB *rgb=(pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
    
-//randomly shuffle the labels
-random_shuffle(labels,labels+k1);
     float alpha=0.4;
     t1=time(NULL);
     for(int i=0;i<img_ht*img_wd;i++)
     {
       int label_val=labels[i];
-      rgb[i].r=alpha*(21*label_val%255) + (1-alpha)*Pixel[i].r;
-      rgb[i].g=alpha*(137*label_val%255) + (1-alpha)*Pixel[i].g;
-      rgb[i].b=alpha*(23*label_val%255) + (1-alpha)*Pixel[i].b;
+      rgb[i].r=alpha*((rand()%256)*label_val%255) + (1-alpha)*Pixel[i].r;
+      rgb[i].g=alpha*((rand()%256)*label_val%255) + (1-alpha)*Pixel[i].g;
+      rgb[i].b=alpha*((rand()%256)*label_val%255) + (1-alpha)*Pixel[i].b;
     }
     
     //labelling the centers
