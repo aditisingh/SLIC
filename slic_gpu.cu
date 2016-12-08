@@ -319,9 +319,11 @@ float error_calculation(point* centers_curr,point* centers_prev,int N)
   {
     // time_t start=time(NULL);
 
-    if(argc != 2) //there should be three arguments
+    if(argc != 5) //there should be three arguments
+    {
+      cout<<" program_name image_name num_superpixels control_constant num_iterations"<<endl;
       return 1; //exit and return an error
-
+    }
     //READING FILE
     
     ifstream infile;
@@ -411,10 +413,10 @@ float error_calculation(point* centers_curr,point* centers_prev,int N)
     cout<<"Colorspace conversion done"<<endl;
     //IMPLEMENTING SLIC ALGORITHM
     int N = img_ht*img_wd;  //number of pixels in the images
-    int K = 10;    //number of superpixels desired
+    int K = atoi(argv[2]);    //number of superpixels desired
 
     int S= floor(sqrt(N/K));//size of each superpixel
-    float m= 10;    //compactness control constant
+    float m=atof(argv[3]);    //compactness control constant
     
     int k1=(1+img_ht/S)*(1+ img_wd/S);//actual number of superpixels
     
@@ -519,7 +521,7 @@ float error_calculation(point* centers_curr,point* centers_prev,int N)
    t2=time(NULL);
    cout<<"labels and distance measures initialized in "<<double(t2-t1)<<" secs"<<endl;
 
-   int num_iterations=10;
+   int num_iterations=atoi(argv[4]);
 
    for(int epoch=0; epoch<num_iterations; epoch++)
    {
@@ -623,6 +625,10 @@ label_assignment<<<DimGrid1,DimBlock1>>>(labels_gpu,Pixel_LAB_gpu,centers_gpu,S,
     float error= error_calculation(centers_curr, centers_prev,k1);
     t2=time(NULL);
     cout<<"error = "<<error<<" and is calculated in "<<double(t2-t1)<<" secs"<<endl;
+    HANDLE_ERROR(cudaFree(labels_gpu));
+    HANDLE_ERROR(cudaFree(Pixel_LAB_gpu));
+    HANDLE_ERROR(cudaFree(centers_gpu));
+    HANDLE_ERROR(cudaFree(d_gpu));
    }
 
     pixel_RGB *rgb=(pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
