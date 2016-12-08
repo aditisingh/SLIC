@@ -155,21 +155,21 @@
   }
 
 
-__global__ void label_assignment(int* labels_gpu, pixel_XYZ* Pixel_LAB_gpu, point* centers_gpu, int S, int img_wd, int* d_gpu)
+__global__ void label_assignment(int* labels_gpu, pixel_XYZ* Pixel_LAB_gpu, point* centers_gpu, int S, int img_wd,int m, float* d_gpu)
 {
         size_t index_center = blockIdx.x*blockDim.x+ threadIdx.x;
 	// finding centre coordinates
-	int x_center=centres_gpu[index].x;
-	int y_center=centres_gpu[index].y;
-	int i=labels[index];		
-	for(int x_coord=centre_x-S;x_coord<=centre_x+S;x_coord++)
+	int x_center=centers_gpu[index_center].x;
+	int y_center=centers_gpu[index_center].y;
+	int i=labels_gpu[index_center];		
+	for(int x_coord=x_center-S;x_coord<=x_center+S;x_coord++)
 	{
-		for(int y_coord=centre_y-S;y_coord<=centre_y+S;y_coord++)
+		for(int y_coord=y_center-S;y_coord<=y_center+S;y_coord++)
 		{
 			int j=y_coord*img_wd+x_coord;
-		        float d_c = pow(pow((Pixel_LAB_gpu[index_center].x-Pixel_LAB_gpu[j].x),2) + pow((Pixel_LAB_gpu[index_center].y-Pixel_LAB_gpu[j].y),2) + pow((Pixel_LAB_gpu[index_center].z-Pixel_LAB_gpu[j].z),2),0.5); //color proximity;
-         		float d_s = pow(pow(x_coord-x_center,2)+pow(y_coord-y_center,2),0.5); //spatial proximity
-          		float D=pow(pow(d_c,2)+pow(m*d_s/S,2),0.5);
+		        float d_c = powf(powf((Pixel_LAB_gpu[index_center].x-Pixel_LAB_gpu[j].x),2) + powf((Pixel_LAB_gpu[index_center].y-Pixel_LAB_gpu[j].y),2) + powf((Pixel_LAB_gpu[index_center].z-Pixel_LAB_gpu[j].z),2),0.5); //color proximity;
+         		float d_s = powf(powf(x_coord-x_center,2)+powf(y_coord-y_center,2),0.5); //spatial proximity
+          		float D=powf(powf(d_c,2)+powf(m*d_s/S,2),0.5);
 
 		  if(D<d_gpu[j])
 		  {
@@ -212,7 +212,7 @@ __global__ void label_assignment(int* labels_gpu, pixel_XYZ* Pixel_LAB_gpu, poin
   __global__ void update_centres(int* labels_gpu,point* centres_gpu, int S, int img_wd)
 {
 	 size_t index = blockIdx.x*blockDim.x+ threadIdx.x;
-	int i=labels[index];
+	int i=labels_gpu[index];
 	// finding centre coordinates
 	int centre_x=centres_gpu[index].x;
 	int centre_y=centres_gpu[index].y;
@@ -223,7 +223,7 @@ __global__ void label_assignment(int* labels_gpu, pixel_XYZ* Pixel_LAB_gpu, poin
 		{
 			int pt_idx=y_coord*img_wd+x_coord;
 
-			if(labels[pt_idx]==index)
+			if(labels_gpu[pt_idx]==i)
 			{
 				x_mean+=x_coord; 
 				y_mean+=y_coord;
@@ -234,8 +234,8 @@ __global__ void label_assignment(int* labels_gpu, pixel_XYZ* Pixel_LAB_gpu, poin
 	}
 	if(flag)
 	{
-		centres_gpu[i]=x_mean/count;
-		centres_gpu[i]=y_mean/count;
+		centres_gpu[index].x=x_mean/count;
+		centres_gpu[index].y=y_mean/count;
 	}	
 
 }
@@ -411,7 +411,7 @@ float error_calculation(point* centers_curr,point* centers_prev,int N)
     cout<<"Colorspace conversion done"<<endl;
     //IMPLEMENTING SLIC ALGORITHM
     int N = img_ht*img_wd;  //number of pixels in the images
-    int K = 100;    //number of superpixels desired
+    int K = 10;    //number of superpixels desired
 
     int S= floor(sqrt(N/K));//size of each superpixel
     float m= 10;    //compactness control constant
@@ -528,6 +528,7 @@ float error_calculation(point* centers_curr,point* centers_prev,int N)
 
     t1=time(NULL); 
    point* centers_gpu;
+float* d_gpu;
 	int* labels_gpu;
    pixel_XYZ* Pixel_LAB_gpu;
    HANDLE_ERROR(cudaMalloc(&centers_gpu, k1*sizeof(point)));
@@ -546,7 +547,7 @@ float thread_block1=prop.maxThreadsPerBlock;
  HANDLE_ERROR(cudaMemcpy(Pixel_LAB_gpu, Pixel_LAB, N*sizeof(pixel_XYZ), cudaMemcpyHostToDevice));
     HANDLE_ERROR(cudaMemcpy(d_gpu, d , N*sizeof(int), cudaMemcpyHostToDevice));
 
-label_assignment<<<DimGrid1,DimBlock1>>>(labels_gpu,Pixel_LAB_gpu,centers_gpu,S,img_wd, d_gpu);
+label_assignment<<<DimGrid1,DimBlock1>>>(labels_gpu,Pixel_LAB_gpu,centers_gpu,S,img_wd,m, d_gpu);
 
 
     /*for(int i=0; i<k1;i++)//for every cluster center
@@ -583,7 +584,7 @@ label_assignment<<<DimGrid1,DimBlock1>>>(labels_gpu,Pixel_LAB_gpu,centers_gpu,S,
 	t1=time(NULL);
 	
 
-    update_centres<<<DimGrid1,DimBlock1>>>(labels_gpu, centres_gpu, S, img_wd);
+    update_centres<<<DimGrid1,DimBlock1>>>(labels_gpu, centers_gpu, S, img_wd);
 
 //copy back centres, labels, d
     HANDLE_ERROR(cudaMemcpy(centers_curr, centers_gpu, k1*sizeof(point), cudaMemcpyDeviceToHost));
@@ -628,7 +629,7 @@ label_assignment<<<DimGrid1,DimBlock1>>>(labels_gpu,Pixel_LAB_gpu,centers_gpu,S,
    
 //randomly shuffle the labels
 random_shuffle(labels,labels+k1);
-    float alpha=0.4;
+    float alpha=0.3;
     t1=time(NULL);
     for(int i=0;i<img_ht*img_wd;i++)
     {
