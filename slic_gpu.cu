@@ -178,7 +178,7 @@ __global__ void label_assignment(int* labels_gpu, pixel_XYZ* Pixel_LAB_gpu, poin
 		  if(D<d_gpu[j])
 		  {
 		    d_gpu[j]=D;
-		    labels_gpu[j]=centre_idx;
+		    labels_gpu[j]=index;
 		  }
 		}
 	}
@@ -401,22 +401,26 @@ float error_calculation(point* centers_curr,point* centers_prev,int N)
     
     int k1=ceil(img_ht*1.0/S)*ceil(img_wd*1.0/S);//actual number of superpixels
     cout<<k1<<" "<<S<<" "<<float(img_ht*1.0/S)<<" "<<float(img_wd*1.0/S)<<endl;
-    //initialize centers
-    time_t t1=time(NULL);	
     point* centers_curr=(point*)malloc(k1*sizeof(point));
+
+    //initialize centers
+   
+    time_t t1=time(NULL);	
    
     int center_ctr=0;
-    for(int j=int(S/2);j<S*ceil(img_ht/S);j=j+S)
+    for(int j=S/2;j<S*ceil(img_ht*1.0/S);j=j+S)
     {
-      for(int i=int(S/2);i<S*ceil(img_wd/S);i=i+S)
+      for(int i=S/2;i<S*ceil(img_wd*1.0/S);i=i+S)
       {
-        centers_curr[center_ctr].x=i>img_wd?(img_wd+j-S)/2:i;
-        centers_curr[center_ctr].y=j>img_ht?(img_ht+i-S)/2:j;
+        int val1=((i>=img_wd)?(img_wd+j-S)/2:i);
+        int val2=((j>=img_ht)?(img_ht+i-S)/2:j);
+        centers_curr[center_ctr].x=val1;
+        centers_curr[center_ctr].y=val2;
+        // cout<<center_ctr<<" "<<centers_curr[center_ctr].x<<" "<<centers_curr[center_ctr].y<<" "<<val1<<" "<<val2<<endl;
         center_ctr++;
-        cout<<center_ctr<<" "<<centers_curr[center_ctr].x<<" "<<centers_curr[center_ctr].y<<" "<<i<<" "<<j<<endl;
+
       }
     }
-    cout<<center_ctr<<endl;
     
     time_t t2=time(NULL);
     cout<<"centres initialized in "<<double(t2-t1)<<" secs"<<endl;
@@ -545,8 +549,11 @@ label_assignment<<<DimGrid1,DimBlock1>>>(labels_gpu,Pixel_LAB_gpu,centers_gpu,S,
     //update cluster centres
 	t1=time(NULL);
 	
-    centers_prev=centers_curr; //saving current centres, before any recalculation
-
+  for(int i=0; i<k1;i++)
+    {
+    centers_prev[i].x=centers_curr[i].x; //saving current centres, before any recalculation
+    centers_prev[i].y=centers_curr[i].y;
+  }
     update_centres<<<DimGrid1,DimBlock1>>>(labels_gpu, centers_gpu, S, img_wd, k1);
 
 //copy back centres, labels, d
@@ -554,8 +561,6 @@ label_assignment<<<DimGrid1,DimBlock1>>>(labels_gpu,Pixel_LAB_gpu,centers_gpu,S,
     HANDLE_ERROR(cudaMemcpy(d, d_gpu, N*sizeof(int), cudaMemcpyDeviceToHost));
     HANDLE_ERROR(cudaMemcpy(labels, labels_gpu, N*sizeof(int), cudaMemcpyDeviceToHost));
 
-for(int i=0; i<k1;i++)
-  cout<<"index: "<<i<<" old centers: ("<<centers_prev[i].x<<","<<centers_prev[i].y<<"), new centers: ("<<centers_curr[i].x<<","<<centers_curr[i].y<<")"<<endl;
 	t2=time(NULL);
     cout<<"cluster centers updated in "<<double(t2-t1)<<" secs"<<endl;
 
