@@ -13,6 +13,7 @@
 	  #include <cuda_runtime_api.h>
 	  #include <cuda.h>
 
+
 using namespace std;
 
 	  //handlerror declaration : to display file and line numbers of erroneous lines
@@ -35,9 +36,9 @@ struct pixel_RGB
 	  // storing values for xyz and lab colorspace images
 	  struct pixel_XYZ
 	  {
-	    float x;  //X for XYZ colorspace, L for LAB colorspace
-	    float y;  //Y for XYZ colorspace, A for LAB colorspace
-	    float z;  //Z for XYZ colorspace, B for LAB colorspace
+	    double x;  //X for XYZ colorspace, L for LAB colorspace
+	    double y;  //Y for XYZ colorspace, A for LAB colorspace
+	    double z;  //Z for XYZ colorspace, B for LAB colorspace
 	  };
 
 	  //store coordinates for each cluster centres
@@ -50,9 +51,9 @@ struct pixel_RGB
 
 
 	  //color space conversion from RGB to XYZ
-	  pixel_XYZ* RGB_XYZ(pixel_RGB* img ,int ht ,int wd)
+	  pixel_XYZ* RGB_LAB(pixel_RGB* img ,int ht ,int wd)
 	  { 
-	    pixel_XYZ *XYZ=(pixel_XYZ*)(malloc(ht*wd*sizeof(pixel_XYZ))); //declaring same sized output image
+	    pixel_XYZ *LAB_img=(pixel_XYZ*)(malloc(ht*wd*sizeof(pixel_XYZ))); //declaring same sized output image
 
 	    for(int i=0; i<ht*wd;i++)
 	    {
@@ -60,87 +61,40 @@ struct pixel_RGB
 	    	int G=img[i].g;
 	    	int B=img[i].b;
 
-	    	float var_R=R*1.0/255;
-	    	float var_G=G*1.0/255;
-	    	float var_B=B*1.0/255;
+	    	double var_R=double(R)/255;
+	    	double var_G=double(G)/255;
+	    	double var_B=double(B)/255;
 
-	    	if(var_R>0.04045)
-	    		var_R =pow((var_R + 0.055)/1.055,2.4);
-	    	else                  
-	    		var_R = var_R / 12.92;
+	    	double X = var_R * 0.4124 + var_G * 0.3576 + var_B * 0.1805;
+	    	double Y = var_R * 0.2126 + var_G * 0.7152 + var_B * 0.0722;
+	    	double Z = var_R * 0.0193 + var_G * 0.1192 + var_B * 0.9505;
 
-	    	if ( var_G > 0.04045 ) 
-	    		var_G = pow((var_G + 0.055)/1.055,2.4);
-	    	else                   
-	    		var_G = var_G / 12.92;
+	    	X=X/0.95047;
+	  		Y=Y/1.00000;
+	  		Z=Z/1.088969;
 
-	    	if ( var_B > 0.04045 ) 
-	    		var_B = pow((var_B + 0.055 )/1.055, 2.4);
-	    	else                   
-	    		var_B = var_B / 12.92;
+	  		double Y3=pow(Y,1/3);
 
-	    	var_R = var_R * 100;
-	    	var_G = var_G * 100;
-	    	var_B = var_B * 100;
+	  		double T=0.008856;
+	  		double fx=(X>T)?(pow(X,double(1)/3)):(7.787*X+(16/116));
+	  		double fy=(Y>T)?(pow(Y,double(1)/3)):(7.787*Y+(16/116));
+	  		double fz=(Z>T)?(pow(Z,double(1)/3)):(7.787*Z+(16/116));
 
-	    	float X = var_R * 0.4124 + var_G * 0.3576 + var_B * 0.1805;
-	    	float Y = var_R * 0.2126 + var_G * 0.7152 + var_B * 0.0722;
-	    	float Z = var_R * 0.0193 + var_G * 0.1192 + var_B * 0.9505;
 
-	    	XYZ[i].x=X;
-	    	XYZ[i].y=Y;
-	    	XYZ[i].z=Z;
-
-	    }
-
-	    return XYZ;
-	  }
-	  //colorspace conversion from XYZ to LAB
-	  pixel_XYZ* XYZ_LAB(pixel_XYZ* img ,int ht ,int wd)
-	  { 
-	  	pixel_XYZ *LAB_img=(pixel_XYZ*)(malloc(ht*wd*sizeof(pixel_XYZ)));
-
-	  	for(int i=0; i<ht*wd;i++)
-	  	{
-	  		float X=img[i].x;
-	  		float Y=img[i].y;
-	  		float Z=img[i].z;
-
-	  		float ref_X =  95.047;
-	  		float ref_Y = 100.000;
-	  		float ref_Z = 108.883;
-
-	      float var_X = X/ref_X;          //  Observer= 2°, Illuminant= D65
-	      float var_Y = Y/ref_Y;
-	      float var_Z = Z/ref_Z;          
-
-	      if(var_X > 0.008856) 
-	      	var_X = pow(var_X,1/3);
-	      else                    
-	      	var_X = (7.787*var_X ) + (16/116);
-
-	      if(var_Y > 0.008856) 
-	      	var_Y = pow(var_Y,1/3);
-	      else                    
-	      	var_Y = (7.787*var_Y) + (16/116);
-
-	      if(var_Z > 0.008856) 
-	      	var_Z = pow(var_Z,1/3);
-	      else                    
-	      	var_Z = (7.787*var_Z) + (16/116);
-
-	      float L = (116 * var_Y) - 16;
-	      float A = 500 * (var_X - var_Y);
-	      float B = 200 * (var_Y - var_Z);
+	  		double L=(Y>T)?(116*Y3 - 16):(903.3*Y);
+	      double a = 500 * (fx - fy);
+	      double b = 200 * (fy - fz);
 
 	      LAB_img[i].x=L;
-	      LAB_img[i].y=A;
-	      LAB_img[i].z=B;
+	      LAB_img[i].y=a;
+	      LAB_img[i].z=b;
 	    }
+
 	    return LAB_img;
 	  }
+	
 
-	  int min_index(float* array, int size, int x1, int x2, int y1, int y2, int img_wd) //find the index of min value a given region
+	  int min_index(double* array, int size, int x1, int x2, int y1, int y2, int img_wd) //find the index of min value a given region
 	  {
 	  	int index=0;
 	  	for(int i=0;i<size;i++)
@@ -156,14 +110,14 @@ struct pixel_RGB
 
 
 	  __global__ void label_assignment(int* labels_gpu, pixel_XYZ* Pixel_LAB_gpu, point* centers_gpu, int S, int img_wd, int img_ht,
-	  	int m, float* d_gpu, int k1)
+	  	int m, double* d_gpu, int k1)
 	  {
 	  size_t index = blockIdx.x*blockDim.x+ threadIdx.x; //find threadindex of cluster center
 		// finding centre coordinates
 	  int x_center=centers_gpu[index].x;
 	  int y_center=centers_gpu[index].y;
 	  int centre_idx=y_center*img_wd+x_center;//find index in image row major form
-
+	  labels_gpu[centre_idx]=index;
 	  if(index>=k1) //for degenerate cases
 	  	return;	
 
@@ -172,14 +126,14 @@ struct pixel_RGB
 			for(int y_coord=max(0,y_center-S);y_coord<=min(img_ht,y_center+S);y_coord++)
 			{
 				int j=y_coord*img_wd+x_coord; // find global index of the pixel
-			  float d_c = powf(powf((Pixel_LAB_gpu[centre_idx].x-Pixel_LAB_gpu[j].x),2) + powf((Pixel_LAB_gpu[centre_idx].y-Pixel_LAB_gpu[j].y),2) + powf((Pixel_LAB_gpu[centre_idx].z-Pixel_LAB_gpu[j].z),2),0.5); //color proximity;
-	   		float d_s = powf(powf(x_coord-x_center,2)+powf(y_coord-y_center,2),0.5); //spatial proximity
-	   		float D=powf(powf(d_c,2)+powf(m*d_s/S,2),0.5);
+			  double d_c = powf(powf((Pixel_LAB_gpu[centre_idx].x-Pixel_LAB_gpu[j].x),2) + powf((Pixel_LAB_gpu[centre_idx].y-Pixel_LAB_gpu[j].y),2) + powf((Pixel_LAB_gpu[centre_idx].z-Pixel_LAB_gpu[j].z),2),0.5); //color proximity;
+	   		double d_s = powf(powf(x_coord-x_center,2)+powf(y_coord-y_center,2),0.5); //spatial proximity
+	   		double D=powf(powf(d_c,2)+powf(m*d_s/S,2),0.5);
+	   		// printf("%d, %d ,%d \n ",j,index,d_gpu[j],D);
 
 	   		if(D<d_gpu[j])
 	   		{
 	   			d_gpu[j]=D;
-	   			// printf("%d, %d \n ",j,index);
 	   			labels_gpu[j]=index;
 	   		}
 	   	}
@@ -228,16 +182,16 @@ struct pixel_RGB
 	
 	
 
-	float error_calculation(point* centers_curr,point* centers_prev,int N)
+	double error_calculation(point* centers_curr,point* centers_prev,int N)
 	{
-		float err=0;
+		double err=0;
 		for(int i=0;i<N;i++)
 		{
 			err+=pow((centers_curr[i].x-centers_prev[i].x),2) + pow((centers_curr[i].y-centers_prev[i].y),2);
 	    // cout<<i<<" "<<"curr = ("<<centers_curr[i].x<<","<<centers_curr[i].y<<") , prev= ("<<centers_prev[i].x<<","<<centers_prev[i].y<<")"<<endl;
 		}
 
-		err=((float)err)/N;
+		err=((double)err)/N;
 		return err;
 	}
 
@@ -343,10 +297,10 @@ struct pixel_RGB
 	    //RGB to XYZ
 	    // time_t t9= time(NULL);
 			cudaEventRecord(start);
-			pixel_XYZ *Pixel_XYZ=RGB_XYZ(Pixel, img_ht, img_wd);
+			// pixel_XYZ *Pixel_XYZ=RGB_XYZ(Pixel, img_ht, img_wd);
 			
 	    //XYZ TO CIE-L*ab
-			pixel_XYZ* Pixel_LAB=XYZ_LAB(Pixel_XYZ, img_ht, img_wd);
+			pixel_XYZ* Pixel_LAB=RGB_LAB(Pixel, img_ht, img_wd);
 			cudaEventRecord(stop);
 			cudaEventSynchronize(stop);
 
@@ -391,13 +345,13 @@ struct pixel_RGB
 	    //perturb centers
 
 	    cudaEventRecord(start);
-	    float* G=(float*)malloc(N*sizeof(float)); 
+	    double* G=(double*)malloc(N*sizeof(double)); 
 	    for(int i=0; i<img_wd;i++)
 	    {
 	    	for(int j=0; j<img_ht;j++)
 	    	{
 	    		int index=j*img_wd+i;
-	    		float L1, L2, L3, L4, a1, a2, a3, a4, b1, b2, b3, b4;
+	    		double L1, L2, L3, L4, a1, a2, a3, a4, b1, b2, b3, b4;
 	    		L1=L2=L3=L4=a1=a2=a3=a4=b1=b2=b3=b4=0;
 
 	     		// cout<<i<<" "<<j<<endl;
@@ -438,7 +392,7 @@ struct pixel_RGB
 	    
 	    ///label initialized to all -1
 	    int* labels=(int*)malloc(N*sizeof(int));
-	    float* d=(float*)malloc(N*sizeof(float));
+	    double* d=(double*)malloc(N*sizeof(double));
 	    
 	    cudaEventRecord(start);	    
 	    for(int idx=0;idx<N;idx++)
@@ -453,17 +407,17 @@ struct pixel_RGB
 	    
 	    cout<<"labels and distance measures initialized in "<<milliseconds<<" ms"<<endl;
 
-	    float error=10;
+	    double error=100;
 
 	    point* centers_prev=(point*)(malloc(k1*sizeof(point)));
 	    int epoch=0;
-	    while(error>0.0001)
+	    while(error>10)
 	    {
 	    	cout<<"Epoch number "<<epoch<<endl;
 
 
 	    	point* centers_gpu;
-	    	float* d_gpu;
+	    	double* d_gpu;
 	    	int* labels_gpu;
 	    	pixel_XYZ* Pixel_LAB_gpu;
 	    	HANDLE_ERROR(cudaMalloc(&centers_gpu, k1*sizeof(point)));
@@ -471,7 +425,7 @@ struct pixel_RGB
 	    	HANDLE_ERROR(cudaMalloc(&labels_gpu, N*sizeof(int)));
 
 	    	HANDLE_ERROR(cudaMalloc(&Pixel_LAB_gpu, N*sizeof(pixel_XYZ)));
-	    	HANDLE_ERROR(cudaMalloc(&d_gpu, N*sizeof(float)));
+	    	HANDLE_ERROR(cudaMalloc(&d_gpu, N*sizeof(double)));
 	    	cudaDeviceProp prop;
 
 	    	unsigned int thread_block1=prop.maxThreadsPerBlock;
@@ -485,7 +439,8 @@ struct pixel_RGB
 	    	HANDLE_ERROR(cudaMemcpy(centers_gpu, centers_curr, k1*sizeof(point), cudaMemcpyHostToDevice));
 	    	HANDLE_ERROR(cudaMemcpy(Pixel_LAB_gpu, Pixel_LAB, N*sizeof(pixel_XYZ), cudaMemcpyHostToDevice));
 	    	HANDLE_ERROR(cudaMemcpy(d_gpu, d , N*sizeof(int), cudaMemcpyHostToDevice));
-
+	    	// for(int i=0; i<N;i++)
+	    		// cout<<labels[i]<<endl;
 	    	cudaEventRecord(start);
 
 	    	label_assignment<<<DimGrid1,DimBlock1>>>(labels_gpu,Pixel_LAB_gpu,centers_gpu,S,img_wd, img_ht,m, d_gpu, k1);
@@ -542,15 +497,15 @@ struct pixel_RGB
 
 	//randomly shuffle the labels
 	  random_shuffle(labels,labels+k1);
-	  float alpha=0;
+	  float alpha=1;
 	  cudaEventRecord(start);
 	  for(int i=0;i<img_ht*img_wd;i++)
 	  {
 	  	int label_val=labels[i];
 	      // cout<<label_val<<endl;
-	  	rgb[i].r=alpha*(21*label_val%255) + (1-alpha)*Pixel_LAB[i].x;
-	  	rgb[i].g=alpha*(47*label_val%255) + (1-alpha)*Pixel_LAB[i].y;
-	  	rgb[i].b=alpha*(173*label_val%255) + (1-alpha)*Pixel_LAB[i].z;
+	  	rgb[i].r=alpha*(21*label_val%255);// + (1-alpha)*Pixel[i].r;
+	  	rgb[i].g=alpha*(47*label_val%255) ;//+ (1-alpha)*Pixel[i].g;
+	  	rgb[i].b=alpha*(173*label_val%255) ;//+ (1-alpha)*Pixel[i].b;
 	  }
 
 	    //labelling the centers
