@@ -60,9 +60,9 @@ struct pixel_RGB
 	    	int G=img[i].g;
 	    	int B=img[i].b;
 
-	    	float var_R=R/255;
-	    	float var_G=G/255;
-	    	float var_B=B/255;
+	    	float var_R=R*1.0/255;
+	    	float var_G=G*1.0/255;
+	    	float var_B=B*1.0/255;
 
 	    	if(var_R>0.04045)
 	    		var_R =pow((var_R + 0.055)/1.055,2.4);
@@ -457,7 +457,7 @@ struct pixel_RGB
 
 	    point* centers_prev=(point*)(malloc(k1*sizeof(point)));
 	    int epoch=0;
-	    while(error>0.005)
+	    while(error>0.0001)
 	    {
 	    	cout<<"Epoch number "<<epoch<<endl;
 
@@ -542,15 +542,15 @@ struct pixel_RGB
 
 	//randomly shuffle the labels
 	  random_shuffle(labels,labels+k1);
-	  float alpha=0.5;
+	  float alpha=0;
 	  cudaEventRecord(start);
 	  for(int i=0;i<img_ht*img_wd;i++)
 	  {
 	  	int label_val=labels[i];
 	      // cout<<label_val<<endl;
-	  	rgb[i].r=alpha*(21*label_val%255) + (1-alpha)*Pixel[i].r;
-	  	rgb[i].g=alpha*(47*label_val%255) + (1-alpha)*Pixel[i].g;
-	  	rgb[i].b=alpha*(173*label_val%255) + (1-alpha)*Pixel[i].b;
+	  	rgb[i].r=alpha*(21*label_val%255) + (1-alpha)*Pixel_LAB[i].x;
+	  	rgb[i].g=alpha*(47*label_val%255) + (1-alpha)*Pixel_LAB[i].y;
+	  	rgb[i].b=alpha*(173*label_val%255) + (1-alpha)*Pixel_LAB[i].z;
 	  }
 
 	    //labelling the centers
