@@ -155,7 +155,8 @@ struct pixel_RGB
 	  }
 
 
-	  __global__ void label_assignment(int* labels_gpu, pixel_XYZ* Pixel_LAB_gpu, point* centers_gpu, int S, int img_wd,int m, float* d_gpu, int k1)
+	  __global__ void label_assignment(int* labels_gpu, pixel_XYZ* Pixel_LAB_gpu, point* centers_gpu, int S, int img_wd, int img_ht,
+	  	int m, float* d_gpu, int k1)
 	  {
 	  size_t index = blockIdx.x*blockDim.x+ threadIdx.x; //find threadindex of cluster center
 		// finding centre coordinates
@@ -166,9 +167,9 @@ struct pixel_RGB
 	  if(index>=k1) //for degenerate cases
 	  	return;	
 
-		for(int x_coord=x_center-S;x_coord<=x_center+S;x_coord++) //look in 2S x 2S neighborhood
+		for(int x_coord=max(0,x_center-S);x_coord<=min(img_wd,x_center+S);x_coord++) //look in 2S x 2S neighborhood
 		{
-			for(int y_coord=y_center-S;y_coord<=y_center+S;y_coord++)
+			for(int y_coord=max(0,y_center-S);y_coord<=min(img_ht,y_center+S);y_coord++)
 			{
 				int j=y_coord*img_wd+x_coord; // find global index of the pixel
 			  float d_c = powf(powf((Pixel_LAB_gpu[centre_idx].x-Pixel_LAB_gpu[j].x),2) + powf((Pixel_LAB_gpu[centre_idx].y-Pixel_LAB_gpu[j].y),2) + powf((Pixel_LAB_gpu[centre_idx].z-Pixel_LAB_gpu[j].z),2),0.5); //color proximity;
@@ -178,15 +179,17 @@ struct pixel_RGB
 	   		if(D<d_gpu[j])
 	   		{
 	   			d_gpu[j]=D;
+	   			// printf("%d, %d \n ",j,index);
 	   			labels_gpu[j]=index;
 	   		}
 	   	}
 	   }
 	 }
 
-	 __global__ void update_centres(int* labels_gpu, point* centers_gpu, int S, int img_wd, int k1)
+	 __global__ void update_centres(int* labels_gpu, point* centers_gpu, int S, int img_wd, int img_ht, int k1)
 	 {
 		 size_t index = blockIdx.x*blockDim.x+ threadIdx.x; //thread index
+		 // printf("index: %d \n",index);
 		 if(index>=k1)
 		 	return;
 		// finding centre coordinates
@@ -196,9 +199,9 @@ struct pixel_RGB
 	  int i=labels_gpu[centre_y*img_wd+centre_x]; //finding the label of centre
 
 	  int x_mean=0, y_mean=0, count=0, flag=0;
-	  for(int x_coord=centre_x-S;x_coord<=centre_x+S;x_coord++)
+	  for(int x_coord=max(0,centre_x-S);x_coord<=min(img_wd,centre_x+S);x_coord++)
 	  {
-	  	for(int y_coord=centre_y-S;y_coord<=centre_y+S;y_coord++)
+	  	for(int y_coord=max(0,centre_y-S);y_coord<=min(img_ht,centre_y+S);y_coord++)
 	  	{
 	  		int pt_idx=y_coord*img_wd+x_coord;
 
@@ -220,68 +223,10 @@ struct pixel_RGB
 
 	}
 
-	__host__ __device__ float padding(float* Pixel_val, int x_coord, int y_coord, int img_width, int img_height) 
-	{ float Px;
-		Px=0;
-		if(x_coord< img_width && y_coord <img_height && x_coord>=0 && y_coord>=0)
-		{
-			Px=Pixel_val[y_coord*img_width+x_coord];
-		}
-		return Px;
-	}
+	
 
-	__global__ void vertical_conv(float* Pixel_in, float* Pixel_out,int img_wd, int img_ht, float* kernel, int k)
-	{
-		size_t col=blockIdx.x*blockDim.x + threadIdx.x;
-		size_t row=blockIdx.y*blockDim.y + threadIdx.y;
-
-		size_t idx=row*img_wd+col;
-
-		float tmp=0;    
-
-		if(row<img_ht && col<img_wd){
-
-			for(int l=0;l<k;l++)
-			{
-				float val=padding(Pixel_in, col, (row+l-(k-1)/2), img_wd, img_ht);
-				tmp+=(val) * kernel[l]/3;
-			}
-
-			Pixel_out[idx]=tmp;
-		}
-	}     
-
-	__global__ void horizontal_conv(float* Pixel_in, float* Pixel_out, int img_wd, int img_ht, float* kernel, int k)
-	{
-		size_t col=blockIdx.x*blockDim.x + threadIdx.x;
-		size_t row=blockIdx.y*blockDim.y + threadIdx.y;
-		size_t idx=row*img_wd+col;
-
-		float tmp=0;
-
-		if(row<img_ht && col<img_wd)
-		{
-			for(int l=0; l<k;l++)
-			{
-				float val=padding(Pixel_in, col+ l-(k-1)/2, row, img_wd, img_ht);
-				tmp+=(val) * kernel[l]/3;
-			}
-			Pixel_out[idx]=tmp;
-		}
-	}
-
-	__global__ void squared_elem_add(float* G1_gpu, float* G2_gpu, float* G_gpu,int img_wd, int img_ht)
-	{
-	  size_t col=blockIdx.x*blockDim.x + threadIdx.x; //column
-	  size_t row=blockIdx.y*blockDim.y + threadIdx.y; //row
-
-	  size_t idx=row*img_wd+col;  //index
-
-	  if(col>img_wd || row>img_ht)
-	  	return;
-
-	  G_gpu[idx]=G1_gpu[idx]*G1_gpu[idx] + G2_gpu[idx]*G2_gpu[idx]; //adding G1 and G2
-	}
+	
+	
 
 	float error_calculation(point* centers_curr,point* centers_prev,int N)
 	{
@@ -529,11 +474,12 @@ struct pixel_RGB
 	    	HANDLE_ERROR(cudaMalloc(&d_gpu, N*sizeof(float)));
 	    	cudaDeviceProp prop;
 
-	    	float thread_block1=prop.maxThreadsPerBlock;
-	    	dim3 DimGrid1(ceil(k1/thread_block1),1,1); 
-	    	dim3 DimBlock1(ceil(thread_block1),1,1);
+	    	unsigned int thread_block1=prop.maxThreadsPerBlock;
+	    	cout<<N<<" "<<S<<" "<<K<<" "<<k1<<" "<<thread_block1<<endl;
 
-	    // cout<<N<<" "<<S<<" "<<K<<" "<<k1<<" "<<DimGrid1.x<<" "<<DimBlock1.x<<endl;
+	    	dim3 DimGrid1(1+(k1/thread_block1),1,1); 
+	    	dim3 DimBlock1(thread_block1,1,1);
+	    	cout<<DimGrid1.x<<" "<<DimBlock1.x<<endl;
 
 	    	HANDLE_ERROR(cudaMemcpy(labels_gpu, labels, N*sizeof(int), cudaMemcpyHostToDevice));
 	    	HANDLE_ERROR(cudaMemcpy(centers_gpu, centers_curr, k1*sizeof(point), cudaMemcpyHostToDevice));
@@ -542,7 +488,7 @@ struct pixel_RGB
 
 	    	cudaEventRecord(start);
 
-	    	label_assignment<<<DimGrid1,DimBlock1>>>(labels_gpu,Pixel_LAB_gpu,centers_gpu,S,img_wd,m, d_gpu, k1);
+	    	label_assignment<<<DimGrid1,DimBlock1>>>(labels_gpu,Pixel_LAB_gpu,centers_gpu,S,img_wd, img_ht,m, d_gpu, k1);
 
 	    	cudaEventRecord(stop);
 	    	cudaEventSynchronize(stop);
@@ -561,7 +507,7 @@ struct pixel_RGB
 	    centers_prev[i].y=centers_curr[i].y;
 	  }
 	  cudaEventRecord(start);
-	  update_centres<<<DimGrid1,DimBlock1>>>(labels_gpu, centers_gpu, S, img_wd, k1);
+	  update_centres<<<DimGrid1,DimBlock1>>>(labels_gpu, centers_gpu, S, img_wd, img_ht, k1);
 	  cudaEventRecord(stop);
 	  cudaEventSynchronize(stop);
 	  cudaEventSynchronize(stop);
@@ -596,15 +542,15 @@ struct pixel_RGB
 
 	//randomly shuffle the labels
 	  random_shuffle(labels,labels+k1);
-	  float alpha=0.4;
+	  float alpha=0.5;
 	  cudaEventRecord(start);
 	  for(int i=0;i<img_ht*img_wd;i++)
 	  {
 	  	int label_val=labels[i];
 	      // cout<<label_val<<endl;
 	  	rgb[i].r=alpha*(21*label_val%255) + (1-alpha)*Pixel[i].r;
-	  	rgb[i].g=alpha*(137*label_val%255) + (1-alpha)*Pixel[i].g;
-	  	rgb[i].b=alpha*(23*label_val%255) + (1-alpha)*Pixel[i].b;
+	  	rgb[i].g=alpha*(47*label_val%255) + (1-alpha)*Pixel[i].g;
+	  	rgb[i].b=alpha*(173*label_val%255) + (1-alpha)*Pixel[i].b;
 	  }
 
 	    //labelling the centers
