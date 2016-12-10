@@ -12,338 +12,450 @@
 
 using namespace std;
 
+
 // storing RGB values for rgb colorspace images
 struct pixel_RGB
 {
-	unsigned char r;
-	unsigned char g;
-	unsigned char b;
+  unsigned char r;
+  unsigned char g;
+  unsigned char b;
 };
 
 // storing values for xyz and lab colorspace images
 struct pixel_XYZ
 {
-	float x;
-	float y;
-	float z;
+  float x;
+  float y;
+  float z;
 };
 
 //store coordinates for each pixel
 struct point
-{	
-	int x;
-	int y;
+{ 
+  int x;
+  int y;
 };
 
-/*point initial_centre(int* label, val)
-{
-	
-}
-*/
 
-int max_value(int* array, int size)
-{
-	int max_val=array[0];
-	for(int i=0;i<size;i++)
-	{
-		//cout<<array[i]<<" ";
-		if(array[i]>=max_val)
-			max_val=array[i];
-	}
-	return max_val;
-}
-
-int min_value(int* array, int size)
-{
-	int min_val=array[0];
-	for(int i=0;i<size;i++)
-	{
-		if(array[i]<min_val)
-			min_val=array[i];
-	}
-	return min_val;
-}
-
+int min_index(float* array, int size, int x1, int x2, int y1, int y2, int img_wd) //find the index of min value a given region
+      {
+        int index=0;
+        for(int i=0;i<size;i++)
+        {
+          if(int(i%img_wd)>=x1 && int(i%img_wd)<=x2 && int(i/img_wd)>=y1 && int(i/img_wd)<=y2)//check if it is in the region of search
+          { 
+            if(array[i]<array[index])
+              index=i;
+          }
+        }
+        return index;
+      }
 //color space conversion from RGB to XYZ
 pixel_XYZ* RGB_XYZ(pixel_RGB* img ,int ht ,int wd)
-{	
-	pixel_XYZ *XYZ=(pixel_XYZ*)(malloc(ht*wd*sizeof(pixel_XYZ)));
+{ 
+  pixel_XYZ *XYZ=(pixel_XYZ*)(malloc(ht*wd*sizeof(pixel_XYZ)));
 
-	for(int i=0; i<ht*wd;i++)
-	{
-		int R=img[i].r;
-		int G=img[i].g;
-		int B=img[i].b;
+  for(int i=0; i<ht*wd;i++)
+  {
+    int R=img[i].r;
+    int G=img[i].g;
+    int B=img[i].b;
 
-		float var_R=R/255;
-		float var_G=G/255;
-		float var_B=B/255;
+    float var_R=R/255;
+    float var_G=G/255;
+    float var_B=B/255;
 
-		if(var_R>0.04045)
-			var_R =pow((var_R + 0.055)/1.055,2.4);
-		else                  
-			 var_R = var_R / 12.92;
+    if(var_R>0.04045)
+      var_R =pow((var_R + 0.055)/1.055,2.4);
+    else                  
+       var_R = var_R / 12.92;
 
-		if ( var_G > 0.04045 ) 
-			var_G = pow((var_G + 0.055)/1.055,2.4);
-		else                   
-			var_G = var_G / 12.92;
+    if ( var_G > 0.04045 ) 
+      var_G = pow((var_G + 0.055)/1.055,2.4);
+    else                   
+      var_G = var_G / 12.92;
 
-		if ( var_B > 0.04045 ) 
-			var_B = pow((var_B + 0.055 )/1.055, 2.4);
-		else                   
-			var_B = var_B / 12.92;
+    if ( var_B > 0.04045 ) 
+      var_B = pow((var_B + 0.055 )/1.055, 2.4);
+    else                   
+      var_B = var_B / 12.92;
 
-			var_R = var_R * 100;
-			var_G = var_G * 100;
-			var_B = var_B * 100;
+      var_R = var_R * 100;
+      var_G = var_G * 100;
+      var_B = var_B * 100;
 
-		float X = var_R * 0.4124 + var_G * 0.3576 + var_B * 0.1805;
-	    float Y = var_R * 0.2126 + var_G * 0.7152 + var_B * 0.0722;
-		float Z = var_R * 0.0193 + var_G * 0.1192 + var_B * 0.9505;
+    float X = var_R * 0.4124 + var_G * 0.3576 + var_B * 0.1805;
+      float Y = var_R * 0.2126 + var_G * 0.7152 + var_B * 0.0722;
+    float Z = var_R * 0.0193 + var_G * 0.1192 + var_B * 0.9505;
 
-		XYZ[i].x=X;
-		XYZ[i].y=Y;
-		XYZ[i].z=Z;
-			
-	}
+    XYZ[i].x=X;
+    XYZ[i].y=Y;
+    XYZ[i].z=Z;
+      
+  }
 
-	return XYZ;
+  return XYZ;
 }
 //colorspace conversion from XYZ to LAB
 pixel_XYZ* XYZ_LAB(pixel_XYZ* img ,int ht ,int wd)
-{	
-	pixel_XYZ *LAB_img=(pixel_XYZ*)(malloc(ht*wd*sizeof(pixel_XYZ)));
+{ 
+  pixel_XYZ *LAB_img=(pixel_XYZ*)(malloc(ht*wd*sizeof(pixel_XYZ)));
 
-	for(int i=0; i<ht*wd;i++)
-	{
-		float X=img[i].x;
-		float Y=img[i].y;
-		float Z=img[i].z;
+  for(int i=0; i<ht*wd;i++)
+  {
+    float X=img[i].x;
+    float Y=img[i].y;
+    float Z=img[i].z;
 
-		float ref_X =  95.047;
-		float ref_Y = 100.000;
-		float ref_Z = 108.883;
+    float ref_X =  95.047;
+    float ref_Y = 100.000;
+    float ref_Z = 108.883;
 
-		float var_X = X/ref_X;          //  Observer= 2°, Illuminant= D65
-		float var_Y = Y/ref_Y;
-		float var_Z = Z/ref_Z;          
+    float var_X = X/ref_X;          //  Observer= 2°, Illuminant= D65
+    float var_Y = Y/ref_Y;
+    float var_Z = Z/ref_Z;          
 
-		if(var_X > 0.008856) 
-			var_X = pow(var_X,1/3);
-		else                    
-			var_X = (7.787*var_X ) + (16/116);
+    if(var_X > 0.008856) 
+      var_X = pow(var_X,1/3);
+    else                    
+      var_X = (7.787*var_X ) + (16/116);
 
-		if(var_Y > 0.008856) 
-			var_Y = pow(var_Y,1/3);
-		else                    
-			var_Y = (7.787*var_Y) + (16/116);
+    if(var_Y > 0.008856) 
+      var_Y = pow(var_Y,1/3);
+    else                    
+      var_Y = (7.787*var_Y) + (16/116);
 
-		if(var_Z > 0.008856) 
-			var_Z = pow(var_Z,1/3);
-		else                    
-			var_Z = (7.787*var_Z) + (16/116);
+    if(var_Z > 0.008856) 
+      var_Z = pow(var_Z,1/3);
+    else                    
+      var_Z = (7.787*var_Z) + (16/116);
 
-		float L = (116 * var_Y) - 16;
-		float A = 500 * (var_X - var_Y);
-		float B = 200 * (var_Y - var_Z);
+    float L = (116 * var_Y) - 16;
+    float A = 500 * (var_X - var_Y);
+    float B = 200 * (var_Y - var_Z);
 
-		LAB_img[i].x=L;
-		LAB_img[i].y=A;
-		LAB_img[i].z=B;
-	}
-	return LAB_img;
+    LAB_img[i].x=L;
+    LAB_img[i].y=A;
+    LAB_img[i].z=B;
+  }
+  return LAB_img;
 }
 
-//label2rgb
+float error_calculation(point* centers_curr,point* centers_prev,int N)
+  {
+    float err=0;
+    for(int i=0;i<N;i++)
+    {
+      err+=pow((centers_curr[i].x-centers_prev[i].x),2) + pow((centers_curr[i].y-centers_prev[i].y),2);
+      // cout<<i<<" "<<"curr = ("<<centers_curr[i].x<<","<<centers_curr[i].y<<") , prev= ("<<centers_prev[i].x<<","<<centers_prev[i].y<<")"<<endl;
+    }
+
+    err=((float)err)/N;
+    return err;
+  }
 
 int main(int argc, char* argv[])
 {
-	time_t start=time(NULL);
-	if(argc != 2) //there should be three arguments
-	return 1; //exit and return an error
+  time_t start=time(NULL);
+  if(argc != 4) //there should be three arguments
+        {
+          cout<<" program_name image_name num_superpixels control_constant"<<endl;
+          return 1; 
+        }//exit and return an error
 
-	//READING FILE
-	
-	ifstream infile;
-	infile.open(argv[1]);
-	string line;
+  //READING FILE
+  
+  ifstream infile;
+  infile.open(argv[1]);
+  string line;
 
-	int img_wd, img_ht;
-	int max_pixel_val;
-	int line_count=0;
+  int img_wd, img_ht;
+  int max_pixel_val;
+  int line_count=0;
 
-	//line one contains P6, line 2 mentions about gimp version, line 3 stores the height and width
-	getline(infile, line);
-	istringstream iss1(line);
+  //line one contains P6, line 2 mentions about gimp version, line 3 stores the height and width
+  getline(infile, line);
+  istringstream iss1(line);
 
-	//reading first line to check format
-	int word;
-	string str1;
-	iss1>>str1;
-	cout<<"str1="<<str1<<endl;
-	
-	if(str1.compare("P6")!=0) //comparing magic number
-	{
-		cout<<"wrong file format"<<endl;
-		//return 1;
-	}
-	
-	getline(infile,line); //this line has version related comment, hence ignoring
-	getline(infile,line); //this stores image dims
+  //reading first line to check format
+  int word;
+  string str1;
+  iss1>>str1;
+  //cout<<"str1="<<str1<<endl;
+  
+  if(str1.compare("P6")!=0) //comparing magic number
+  {
+    cout<<"wrong file format"<<endl;
+    return 1;
+  }
+  
+  getline(infile,line); //this line has version related comment, hence ignoring
+  getline(infile,line); //this stores image dims
 
-	istringstream iss2(line);
-	iss2>>word;// this will be image width
-	img_wd=word;
-	iss2>>word;// this will be image height
-	img_ht=word;
-	
-	cout<<img_ht<<" "<<img_wd<<endl;
+  istringstream iss2(line);
+  iss2>>word;// this will be image width
+  img_wd=word;
+  iss2>>word;// this will be image height
+  img_ht=word;
+  
+  // cout<<img_ht<<" "<<img_wd<<endl;
 
-	//storing the pixels as 1d images
-	pixel_RGB *Pixel = (pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
-	
-	int pix_cnt=0, cnt=0;
+  //storing the pixels as 1d images
+  pixel_RGB *Pixel = (pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
+  
+  int pix_cnt=0, cnt=0;
 
-	getline(infile,line); //this stores max value
-	istringstream iss3(line);
-	iss3>>word;
+  getline(infile,line); //this stores max value
+  istringstream iss3(line);
+  iss3>>word;
 
-	max_pixel_val=word;//max pixel value
-	cout<<max_pixel_val<<endl;
-	unsigned int val;
+  max_pixel_val=word;//max pixel value
+  // cout<<max_pixel_val<<endl;
+  unsigned int val;
 
-	while (getline(infile, line))
-	{
-		istringstream iss4(line);
-		for (int i=0; i<=line.length();i++)
-		{
-			if(pix_cnt<img_ht*img_wd)
-			{
-				val =((int)line[i]);
-				if(cnt%3==0)
-				{
-					Pixel[pix_cnt].r=val;
-				}
-				else if(cnt%3==1)
-				{
-					Pixel[pix_cnt].g=val;
-				}
-				else
-				{
-					Pixel[pix_cnt].b=val;
-					pix_cnt++;
-				}
-				cnt++;
-			}
-		}
-	}
+  while (getline(infile, line))
+  {
+    istringstream iss4(line);
+    for (int i=0; i<=line.length();i++)
+    {
+      if(pix_cnt<img_ht*img_wd)
+      {
+        val =((int)line[i]);
+        if(cnt%3==0)
+        {
+          Pixel[pix_cnt].r=val;
+        }
+        else if(cnt%3==1)
+        {
+          Pixel[pix_cnt].g=val;
+        }
+        else
+        {
+          Pixel[pix_cnt].b=val;
+          pix_cnt++;
+        }
+        cnt++;
+      }
+    }
+  }
 
-	
-	//COLOR CONVERSION
-	//RGB->XYZ->CIE-L*ab
+  
+  //COLOR CONVERSION
+  //RGB->XYZ->CIE-L*ab
 
-	//RGB to XYZ
-	pixel_XYZ *Pixel_XYZ=RGB_XYZ(Pixel, img_ht, img_wd);
-	
-	//XYZ TO CIE-L*ab
-	pixel_XYZ* Pixel_LAB=XYZ_LAB(Pixel_XYZ, img_ht, img_wd);
-	
-	//IMPLEMENTING SLIC ALGORITHM
-	int N = img_ht*img_wd;	//number of pixels in the images
-	int K = 400;		//number of superpixels desired
+  //RGB to XYZ
+  pixel_XYZ *Pixel_XYZ=RGB_XYZ(Pixel, img_ht, img_wd);
+  
+  //XYZ TO CIE-L*ab
+  pixel_XYZ* Pixel_LAB=XYZ_LAB(Pixel_XYZ, img_ht, img_wd);
+  
+  //IMPLEMENTING SLIC ALGORITHM
+  int N = img_ht*img_wd;  //number of pixels in the images
+  int K = atoi(argv[2]);    //number of superpixels desired
 
-	int S= floor(sqrt(N/K));//size of each superpixel
-	float m= 10; 		//compactness control constant
-	
-	int k1=ceil(img_ht/S)*ceil(img_wd/S);
-	//initial labelling
-	int* labelled_ini = (int*)malloc(N*sizeof(int));	//row major wise storing the labels
-	int count=0;
+  int S= floor(sqrt(N/K));//size of each superpixel
+  float m= atof(argv[3]);    //compactness control constant
+  
+  int k1=ceil(img_ht*1.0/S)*ceil(img_wd*1.0/S);
+  cout<<"Width = "<<img_wd<<", Height = "<<img_ht<<endl;
+  cout<<" Number of superpixels is "<<k1<<" each of size "<<S*S<<endl;
+  time_t t1=time(NULL);
+  //storing centers and initializing them
+  point* centers_curr=(point*)malloc(k1*sizeof(point));
+ 
+ int center_ctr=0;
+        for(int j=S/2;j<S*ceil(img_ht*1.0/S);j=j+S)
+        {
+          for(int i=S/2;i<S*ceil(img_wd*1.0/S);i=i+S)
+          {
+            int val1=((i>=img_wd)?(img_wd+j-S)/2:i);
+            int val2=((j>=img_ht)?(img_ht+i-S)/2:j);
+            centers_curr[center_ctr].x=val1;
+            centers_curr[center_ctr].y=val2;
+            //cout<<center_ctr<<" "<<centers_curr[center_ctr].x<<" "<<centers_curr[center_ctr].y<<" "<<val1<<" "<<val2<<endl;
+            center_ctr++;
 
-	vector<int> label_vector;
-	
-	for(int i=0;i<(1+img_ht/S)*(1+img_wd/S);i++)
-		label_vector.push_back(i);
+          }
+        }
 
-	random_shuffle(label_vector.begin(),label_vector.end());
-	
-	vector<int>::iterator it=label_vector.begin();
+        time_t t2=time(NULL);
 
-	for(int i=0; i<img_wd;i=i+S)
-	{
-	    for(int j=0; j<img_ht;j=j+S)
-		{
-			for(int x=i;x<i+S;x++)
-				{
-				for(int y=j;y<j+S;y++)
-					{
-					if(x<img_wd && y<img_ht)
-						{
-						int idx=y*img_wd+x;
-						labelled_ini[idx]=*it;	
-						}
-					}
-				}
-			++it;
-			
-		}
-	}
-	
-	
-	//get initial cluster centers
-	point* centers_curr=(point*)malloc(k1*sizeof(point));
-	int ctr_cnt=0;
-	for(vector<int>::iterator it=label_vector.begin();it!=label_vector.end();++it)
-	{
-	int *p;
-	int pixel_count=0;
-	float x_mean=0, y_mean=0;
-	p=find(labelled_ini, labelled_ini+N,*it);
-	while(p!=labelled_ini+N)
-	{	//cout<<*p<<" FOUND at: "<<p-labelled_ini<<endl;
-		int index=p-labelled_ini;
-		int x_coord=index%img_wd;
-		int y_coord=index/img_wd;
-		pixel_count++;
-		x_mean+=x_coord;
-		y_mean+=y_coord;
-		p=find(p+1, labelled_ini+N,*it);
-	}
-		x_mean=x_mean/pixel_count;
-		y_mean=y_mean/pixel_count;
-		centers_curr[ctr_cnt].x=floor(x_mean);
-		centers_curr[ctr_cnt].y=floor(y_mean);
-		//cout<<"("<<centers_curr[ctr_cnt].x<<","<<centers_curr[ctr_cnt].y<<")"<<endl;	
-	}
+        cout<<"centres initialized in "<<double(t2-t1)<<" s"<<endl;
+///perturb centers
+        t1=time(NULL);
+         float* G=(float*)malloc(N*sizeof(float)); 
+        for(int i=0; i<img_wd;i++)
+        {
+          for(int j=0; j<img_ht;j++)
+          {
+            int index=j*img_wd+i;
+            float L1, L2, L3, L4, a1, a2, a3, a4, b1, b2, b3, b4;
+            L1=L2=L3=L4=a1=a2=a3=a4=b1=b2=b3=b4=0;
 
-	//perturb centers in a 3x3 neighborhood
+            // cout<<i<<" "<<j<<endl;
+            // pt1 is point(x+1, y),pt 2 is point(x-1,y),pt3 is point(x,y+1), pt4 is point(x,y-1)
 
-	
-	pixel_RGB *rgb=(pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
-	int label_prev_val=labelled_ini[0];
+            if(i+1<img_wd)
+              L1=Pixel_LAB[j*img_wd+i+1].x, a1=Pixel_LAB[j*img_wd+i+1].y, b1=Pixel_LAB[j*img_wd+i+1].z;
+            if(i-1>0)
+              L2=Pixel_LAB[j*img_wd+i-1].x, a2=Pixel_LAB[j*img_wd+i-1].y, b2=Pixel_LAB[j*img_wd+i-1].z;
+            if(j+1<img_ht)
+              L3=Pixel_LAB[(j+1)*img_wd+i].x, a3=Pixel_LAB[(j+1)*img_wd+i].y, b3=Pixel_LAB[(j+1)*img_wd+i].z;
+            if(j-1>0)
+              L4=Pixel_LAB[(j-1)*img_wd+i].x, a4=Pixel_LAB[(j-1)*img_wd+i].y, b4=Pixel_LAB[(j-1)*img_wd+i].z;
 
-	//getting labelled image
+            G[index]=pow(L1-L2,2) + pow(a1-a2,2) + pow(b1-b2,2) + pow(L3-L4,2) + pow(a3-a4,2) + pow(b3-b4,2);
+          }
+        }
 
-	for(int i=0;i<img_ht*img_wd;i++)
-	{
-		int label_val=labelled_ini[i];
-		rgb[i].r=21*label_val%256;
-		rgb[i].g=47*label_val%256;
-		rgb[i].b=173*label_val%256;
-	}
-	
-	//OUTPUT STORAGE
-	ofstream ofs;
-	ofs.open("output.ppm", ofstream::out);
-	ofs<<"P6\n"<<img_wd<<" "<<img_ht<<"\n"<<max_pixel_val<<"\n";
+        for(int i=0; i<k1;i++)  //for every component
+        {
+          int x1=centers_curr[i].x-1;
+          int x2=centers_curr[i].x+1;
+          int y1=centers_curr[i].y-1;
+          int y2=centers_curr[i].y+1;
 
-	for(int j=0; j <img_ht*img_wd;j++)
-	{
-		ofs<<rgb[j].r<<rgb[j].g<<rgb[j].b;//labelled_ini[j]<<0<<0;//ofs<<Pixel_LAB[j].x<<Pixel_LAB[j].y<<Pixel_LAB[j].z; //write as ascii
-	}
+          int index = min_index(G, N, x1, x2, y1, y2, img_wd);
+          centers_curr[i].x=(floor)(index%img_wd);
+          centers_curr[i].y=(floor)(index/img_wd);
 
-	ofs.close();
+        } 
+        t2=time(NULL);
+        cout<<"centers perturbed in "<<double(t2-t1)<<" s"<<endl;
 
-	return 0;
+
+        t1=time(NULL);
+         int* labels=(int*)malloc(N*sizeof(int));
+      float* d=(float*)malloc(N*sizeof(float));
+      
+         
+      for(int idx=0;idx<N;idx++)
+      {
+        labels[idx]=-1; 
+        d[idx]=60000;
+      }
+      t2=time(NULL);
+
+      cout<<"labels and distance measures initialized in "<<double(t2-t1)<<" s"<<endl;
+
+
+    float error=10;
+
+      point* centers_prev=(point*)(malloc(k1*sizeof(point)));
+      int epoch=0;
+      while(error>0.005)
+      {
+        cout<<"Epoch = "<<epoch<<endl;
+        //label assignment
+        t1=time(NULL);
+        for(int i=0;i<k1;i++)//for every cluster center
+        {
+          int x_center=centers_curr[i].x;
+          int y_center=centers_curr[i].y;
+          int centre_idx=y_center*img_wd+x_center;//find index in image row major form
+          for(int x_coord=max(0,x_center-S);x_coord<=min(x_center+S,img_wd);x_coord++) //look in 2S x 2S neighborhood
+          {
+            for(int y_coord=max(0,y_center-S);y_coord<=min(img_ht,y_center+S);y_coord++)
+            {
+              int j=y_coord*img_wd+x_coord; // find global index of the pixel
+              float d_c = pow(pow((Pixel_LAB[centre_idx].x-Pixel_LAB[j].x),2) + pow((Pixel_LAB[centre_idx].y-Pixel_LAB[j].y),2) + pow((Pixel_LAB[centre_idx].z-Pixel_LAB[j].z),2),0.5); //color proximity;
+              float d_s = pow(pow(x_coord-x_center,2)+pow(y_coord-y_center,2),0.5); //spatial proximity
+              float D=pow(pow(d_c,2)+pow(m*d_s/S,2),0.5);
+              // cout<<i<<" "<<D<<" "<<j<<" "<<endl;
+              if(D<d[j])
+              {
+                d[j]=D;
+                labels[j]=i;
+                // cout<<i<<" "<<D<<" "<<j<<" "<<endl;
+
+              }
+            }
+          }
+        }
+        t2=time(NULL);
+        cout<<"Labels assigned in "<<double(t2-t1)<<" s"<<endl;
+
+for(int i=0; i<k1;i++)
+        {
+      centers_prev[i].x=centers_curr[i].x; //saving current centres, before any recalculation
+      centers_prev[i].y=centers_curr[i].y;
+    }
+        //update cluster centres
+    t1=time(NULL);
+        for(int i=0; i<k1;i++)//for every cluster centre
+        {
+          int x_mean=0, y_mean=0, count=0;
+          for(int x_coord=0; x_coord<img_wd;x_coord++)
+          {
+            for(int y_coord=0; y_coord<img_ht;y_coord++)
+            {
+              if(labels[y_coord*img_wd+x_coord]==i)
+              {
+                x_mean+=x_coord;
+                y_mean+=y_coord;
+                count++;
+              }
+            }
+          }
+          centers_curr[i].x=x_mean/count;
+          centers_curr[i].y=y_mean/count;
+        }
+t2=time(NULL);
+cout<<"Centers updated in "<<double(t2-t1)<<"s"<<endl;
+        //finding error
+        error= error_calculation(centers_curr, centers_prev,k1);
+
+        cout<<"error= "<<error<<endl;
+        epoch++;
+
+
+      }
+  
+
+    pixel_RGB *rgb=(pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
+
+  //randomly shuffle the labels
+    random_shuffle(labels,labels+k1);
+    float alpha=0.5;
+    for(int i=0;i<img_ht*img_wd;i++)
+    {
+      int label_val=labels[i];
+        // cout<<label_val<<endl;
+      rgb[i].r=alpha*(21*label_val%255) + (1-alpha)*Pixel[i].r;
+      rgb[i].g=alpha*(47*label_val%255) + (1-alpha)*Pixel[i].g;
+      rgb[i].b=alpha*(173*label_val%255) + (1-alpha)*Pixel[i].b;
+    }
+
+      //labelling the centers
+    for(int i=0; i<k1;i++)  
+    {
+      int x_coord=centers_curr[i].x;
+      int y_coord=centers_curr[i].y;
+        // cout<<x_coord<<" "<<y_coord<<endl;
+      for (int x=x_coord-5; x<x_coord+5; x++)
+      {
+        for(int y=y_coord-5; y<y_coord+5; y++)
+        {
+          int idx=img_wd*y_coord + x_coord;
+            rgb[idx].r= 0;//NULL;//(unsigned char) 0; 
+            rgb[idx].g= 0;//(unsigned char) 0; 
+            rgb[idx].b= 0;//(unsigned char) 0;
+          }
+        }
+      }
+
+  
+  // //OUTPUT STORAGE
+  ofstream ofs;
+  ofs.open("output.ppm", ofstream::out);
+  ofs<<"P6\n"<<img_wd<<" "<<img_ht<<"\n"<<max_pixel_val<<"\n";
+
+  for(int j=0; j <img_ht*img_wd;j++)
+  {
+    ofs<<rgb[j].r<<rgb[j].g<<rgb[j].b;//labelled_ini[j]<<0<<0;//ofs<<Pixel_LAB[j].x<<Pixel_LAB[j].y<<Pixel_LAB[j].z; //write as ascii
+  }
+
+  ofs.close();
+
+  return 0;
 }
