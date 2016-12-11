@@ -129,7 +129,7 @@ struct pixel_RGB
 			  double d_c = powf(powf((Pixel_LAB_gpu[centre_idx].x-Pixel_LAB_gpu[j].x),2) + powf((Pixel_LAB_gpu[centre_idx].y-Pixel_LAB_gpu[j].y),2) + powf((Pixel_LAB_gpu[centre_idx].z-Pixel_LAB_gpu[j].z),2),0.5); //color proximity;
 	   		double d_s = powf(powf(x_coord-x_center,2)+powf(y_coord-y_center,2),0.5); //spatial proximity
 	   		double D=powf(powf(d_c,2)+powf(m*d_s/S,2),0.5);
-	   		// printf("%d, %d ,%d \n ",j,index,d_gpu[j],D);
+	   		// printf("%d, %d ,%0.12lf, %0.12lf \n ",j,index,d_gpu[j],D);
 
 	   		if(D<d_gpu[j])
 	   		{
@@ -191,7 +191,7 @@ struct pixel_RGB
 	    // cout<<i<<" "<<"curr = ("<<centers_curr[i].x<<","<<centers_curr[i].y<<") , prev= ("<<centers_prev[i].x<<","<<centers_prev[i].y<<")"<<endl;
 		}
 
-		err=((double)err)/N;
+		err=pow(((double)err),0.5)/N;
 		return err;
 	}
 
@@ -242,7 +242,7 @@ struct pixel_RGB
 	    iss2>>word;// this will be image height
 	    img_ht=word;
 	    
-	    cout<<img_ht<<" "<<img_wd<<endl;
+	    // cout<<img_ht<<" "<<img_wd<<endl;
 
 	    //storing the pixels as 1d images
 	    pixel_RGB *Pixel = (pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
@@ -254,7 +254,7 @@ struct pixel_RGB
 	    iss3>>word;
 
 	    max_pixel_val=word;//max pixel value
-	    cout<<max_pixel_val<<endl;
+	    // cout<<max_pixel_val<<endl;
 	    unsigned int val;
 
 	    while (getline(infile, line))
@@ -312,9 +312,11 @@ struct pixel_RGB
 	    int K = atoi(argv[2]);    //number of superpixels desired
 
 	    int S= floor(sqrt(N/K));//size of each superpixel
-	    float m=atof(argv[3]);    //compactness control constant
-	    
+	    int m=atoi(argv[3]);    //compactness control constant
 	    int k1=ceil(img_ht*1.0/S)*ceil(img_wd*1.0/S);//actual number of superpixels
+
+	    cout<<"Image size: "<<img_wd<<" x "<<img_ht<<endl;
+	    cout<<"Using SLIC algorithm to get "<<k1<<" superpixels of approximate size "<<S<<" x "<<S<<", area "<<S*S<<" each, also m/S="<<1.0*m/S<<endl;
 	    // cout<<k1<<" "<<S<<" "<<float(img_ht*1.0/S)<<" "<<float(img_wd*1.0/S)<<endl;
 	    point* centers_curr=(point*)malloc(k1*sizeof(point));
 
@@ -398,7 +400,7 @@ struct pixel_RGB
 	    for(int idx=0;idx<N;idx++)
 	    {
 	    	labels[idx]=-1; 
-	    	d[idx]=60000;
+	    	d[idx]=60000.00;
 	    }
 	    cudaEventRecord(stop);
 	    cudaEventSynchronize(stop);
@@ -429,16 +431,16 @@ struct pixel_RGB
 	    	cudaDeviceProp prop;
 
 	    	unsigned int thread_block1=prop.maxThreadsPerBlock;
-	    	cout<<N<<" "<<S<<" "<<K<<" "<<k1<<" "<<thread_block1<<endl;
+	    	// cout<<N<<" "<<S<<" "<<K<<" "<<k1<<" "<<thread_block1<<endl;
 
 	    	dim3 DimGrid1(1+(k1/thread_block1),1,1); 
 	    	dim3 DimBlock1(thread_block1,1,1);
-	    	cout<<DimGrid1.x<<" "<<DimBlock1.x<<endl;
+	    	// cout<<DimGrid1.x<<" "<<DimBlock1.x<<endl;
 
 	    	HANDLE_ERROR(cudaMemcpy(labels_gpu, labels, N*sizeof(int), cudaMemcpyHostToDevice));
 	    	HANDLE_ERROR(cudaMemcpy(centers_gpu, centers_curr, k1*sizeof(point), cudaMemcpyHostToDevice));
 	    	HANDLE_ERROR(cudaMemcpy(Pixel_LAB_gpu, Pixel_LAB, N*sizeof(pixel_XYZ), cudaMemcpyHostToDevice));
-	    	HANDLE_ERROR(cudaMemcpy(d_gpu, d , N*sizeof(int), cudaMemcpyHostToDevice));
+	    	HANDLE_ERROR(cudaMemcpy(d_gpu, d , N*sizeof(double), cudaMemcpyHostToDevice));
 	    	// for(int i=0; i<N;i++)
 	    		// cout<<labels[i]<<endl;
 	    	cudaEventRecord(start);
@@ -493,7 +495,25 @@ struct pixel_RGB
 	    epoch++;
 	  }
 
+
+//enforcing connectivity
+	  //for every pixel, find if it is stray, by analysising labels in all 4 directions
+	  //if none is same as the pixel, change it to their
+	  // for(int x=0; x<img_wd;x++)
+	  // {
+	  // 	for(int y=0; y<img_ht; y++)
+	  // 	{
+	  // 		//for the current pixel, get label
+	  // 		int L_0=labels[y*img_wd+x];
+	  // 		if(L_0!=labels[max(0,y-1)*img_wd+x] && L_0!=labels[min(y,img_ht)*img_wd+x] && L_0!=labels[y*img_wd+min(x+1,img_wd)] && L_0!=labels[y*img_wd+max(0,x-1)])	//comparing with top pixel
+			// 	labels[y*img_wd+x]=labels[max(0,y-1)*img_wd+x];	
+	  // 	}
+	  // }
+
+
 	  pixel_RGB *rgb=(pixel_RGB*)malloc((img_ht)*(img_wd)*sizeof(pixel_RGB));
+
+
 
 	//randomly shuffle the labels
 	  random_shuffle(labels,labels+k1);
