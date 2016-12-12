@@ -51,12 +51,10 @@ struct pixel_RGB
 
 
 				  //color space conversion from RGB to LAB
-				pixel_XYZ* RGB_LAB(pixel_RGB* img ,int ht ,int wd)
+				__global__ pixel_XYZ* RGB_LAB(pixel_RGB* img ,int ht ,int wd, pixel_XYZ* LAB_img)
 				{ 
-				    pixel_XYZ *LAB_img=(pixel_XYZ*)(malloc(ht*wd*sizeof(pixel_XYZ))); //declaring same sized output image
-
-				    for(int i=0; i<ht*wd;i++)
-				    {
+				    size_t i=blockDim.x*blockIdx.x+threadIdx.x;
+					
 				    	int R=img[i].r;
 				    	int G=img[i].g;
 				    	int B=img[i].b;
@@ -88,9 +86,7 @@ struct pixel_RGB
 				    	LAB_img[i].x=L;
 				    	LAB_img[i].y=a;
 				    	LAB_img[i].z=b;
-				    }
-
-				    return LAB_img;
+				    
 				}
 				
 
@@ -294,14 +290,27 @@ struct pixel_RGB
 
 				    //COLOR CONVERSION
 				    //RGB->XYZ->CIE-L*ab
+					 int thread_block0=prop.maxThreadsPerBlock;
 
+
+				    dim3 DimGrid0(1+(N/thread_block0),1,1); 
+				    dim3 DimBlock0(thread_block0,1,1);
 				    //RGB to XYZ
 				    // time_t t9= time(NULL);
 						cudaEventRecord(start);
 						// pixel_XYZ *Pixel_XYZ=RGB_XYZ(Pixel, img_ht, img_wd);
 						
 				    //XYZ TO CIE-L*ab
-						pixel_XYZ* Pixel_LAB=RGB_LAB(Pixel, img_ht, img_wd);
+					pixel_XYZ* Pixel_LAB=(pixel_XYZ*)malloc((img_ht)*(img_wd)*sizeof(pixel_XYZ));
+					pixel_XYZ* Pixel_Lab_gpu;
+					HANDLE_ERROR(cudaMalloc(&Pixel_Lab_gpu,img_ht*img_wd*sizeof(pixel_XYZ)));
+					HANDLE_ERROR(cudaMemcpy(Pixel_Lab_gpu,Pixel_LAB,img_wd*img_ht*sizeof(pixel_XYZ),cudaMemcpyHosttoDevice));
+						RGB_LAB<<<DimGrid0,DimBlock0>>>((Pixel, img_ht, img_wd,Pixel_Lab_gpu);
+						HANDLE_ERROR(cudaMemcpy(Pixel_LAB,Pixel_Lab_gpu,img_wd*img_ht*sizeof(pixel_XYZ),cudaMemcpyDevicetoHost));
+						HANDLE_ERROR(cudaFree(Pixel_lab_gpu));
+		
+
+						pixel_XYZ* Pixel_LAB=RGB_LAB(Pixel, img_ht, img_wd,Pixel_LAB);
 						cudaEventRecord(stop);
 						cudaEventSynchronize(stop);
 
@@ -424,7 +433,7 @@ struct pixel_RGB
 				    HANDLE_ERROR(cudaMalloc(&labels_gpu[0], N*sizeof(int)));
 
 				    HANDLE_ERROR(cudaMalloc(&Pixel_LAB_gpu, N*sizeof(pixel_XYZ)));
-				    HANDLE_ERROR(cudaMalloc(&d_gpu[0], N*sizeof(double)));
+M				    HANDLE_ERROR(cudaMalloc(&d_gpu[0], N*sizeof(double)));
 
 
 				    HANDLE_ERROR(cudaMalloc(&centers_gpu[1], k1*sizeof(point)));
