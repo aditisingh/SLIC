@@ -373,6 +373,8 @@
 		    }
 		    
 		    cudaDeviceProp prop;
+		    cudaGetDeviceProperties(&prop,0);
+			
 
 		    for(int i=0; i<k1;i++)  //for every component
 		    {
