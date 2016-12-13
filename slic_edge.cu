@@ -48,7 +48,48 @@ int x;  //x-ccordinate
 int y;  //y-coordinate
 };
 
+__global__ void RGB2LAB(pixel_RGB* img, int img_wd, int img_ht, pixel_XYZ* LAB_img)
+{
+	unsigned int c=blockIdx.x*blockDim.x + threadIdx.x;	//row value using x-index of current thread
+	unsigned int r=blockIdx.y*blockDim.y + threadIdx.y;	//column value using y-index of current thread
 
+	unsigned int idx=c*img_wd+r;
+
+	if(idx>img_wd)
+		return;
+
+	int R=img[idx].r;
+	int G=img[idx].g;
+	int B=img[idx].b;
+
+	double var_R=double(R)/255;
+	double var_G=double(G)/255;
+	double var_B=double(B)/255;
+
+	double X = var_R * 0.4124 + var_G * 0.3576 + var_B * 0.1805;
+	double Y = var_R * 0.2126 + var_G * 0.7152 + var_B * 0.0722;
+	double Z = var_R * 0.0193 + var_G * 0.1192 + var_B * 0.9505;
+
+	X=X/0.95047;
+	Y=Y/1.00000;
+	Z=Z/1.088969;
+
+	double Y3=pow(Y,1/3);
+
+	double T=0.008856;
+	double fx=(X>T)?(pow(X,double(1)/3)):(7.787*X+(16/116));
+	double fy=(Y>T)?(pow(Y,double(1)/3)):(7.787*Y+(16/116));
+	double fz=(Z>T)?(pow(Z,double(1)/3)):(7.787*Z+(16/116));
+
+
+	double L=(Y>T)?(116*Y3 - 16):(903.3*Y);
+	double a = 500 * (fx - fy);
+	double b = 200 * (fy - fz);
+
+	LAB_img[idx].x=L;
+	LAB_img[idx].y=a;
+	LAB_img[idx].z=b;
+}
 
 //color space conversion from RGB to XYZ
 pixel_XYZ* RGB_LAB(pixel_RGB* img ,int ht ,int wd)
@@ -296,11 +337,41 @@ cout<<"File read in "<<milliseconds<<" ms"<<endl;
 
 //RGB to XYZ
 // time_t t9= time(NULL);
+cudaDeviceProp prop;
+cudaGetDeviceProperties(&prop,0);
+
+float thread_block=sqrt(prop.maxThreadsPerBlock);	//2D blocks used
+dim3 DimGrid(ceil(img_wd/thread_block),ceil(img_ht/thread_block),1); //image saved as a 2D grid
+dim3 DimBlock(thread_block,thread_block,1);
+
+pixel_RGB* Pixel_gpu; //to copy img to gpu
+HANDLE_ERROR(cudaMalloc(&Pixel_gpu,img_ht*img_wd*sizeof(pixel_RGB)));
+HANDLE_ERROR(cudaMemcpy(Pixel_gpu,Pixel,img_wd*img_ht*sizeof(pixel_RGB),cudaMemcpyHostToDevice));
+
+pixel_XYZ* Pixel_LAB, *Pixel_LAB_gpu;
+Pixel_LAB=(pixel_XYZ*)malloc(img_ht*img_wd*sizeof(pixel_XYZ));
+
+HANDLE_ERROR(cudaMalloc(&Pixel_LAB_gpu,img_ht*img_wd*sizeof(pixel_XYZ)));
+HANDLE_ERROR(cudaMemcpy(Pixel_LAB_gpu,Pixel_LAB,img_wd*img_ht*sizeof(pixel_XYZ),cudaMemcpyHostToDevice));
+
+
+
 cudaEventRecord(start);
 // pixel_XYZ *Pixel_XYZ=RGB_XYZ(Pixel, img_ht, img_wd);
+RGB2LAB<<<DimGrid,DimBlock>>>(Pixel_gpu, img_wd, img_ht, Pixel_LAB_gpu);
+HANDLE_ERROR(cudaMemcpy(Pixel_LAB,Pixel_LAB_gpu,img_wd*img_ht*sizeof(pixel_XYZ),cudaMemcpyDeviceToHost));
 
 //XYZ TO CIE-L*ab
-pixel_XYZ* Pixel_LAB=RGB_LAB(Pixel, img_ht, img_wd);
+// pixel_XYZ* Pixel_LAB1=RGB_LAB(Pixel, img_ht, img_wd);
+// 
+
+// for(int i=0; i<img_wd*img_ht;i++)
+	// {
+		// cout<<Pixel_LAB[i].x<<" "<<Pixel_LAB1[i].x<<endl;
+		// cout<<Pixel_LAB[i].y<<" "<<Pixel_LAB1[i].y<<endl;
+		// cout<<Pixel_LAB[i].z<<" "<<Pixel_LAB1[i].z<<endl;
+
+	// }
 cudaEventRecord(stop);
 cudaEventSynchronize(stop);
 
@@ -377,8 +448,7 @@ cudaEventSynchronize(stop);
 cudaEventElapsedTime(&milliseconds, start, stop);//get the time in milliseconds
 cout<<"centres perturbed, step 1 in "<<milliseconds<<" ms"<<endl;
 
-cudaDeviceProp prop;
-cudaGetDeviceProperties(&prop,0);
+
 cudaEventRecord(start);
 
 for(int i=0; i<k1;i++)  //for every component
