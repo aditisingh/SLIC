@@ -41,12 +41,12 @@ struct point
 int min_index(float* array, int size, int x1, int x2, int y1, int y2, int img_wd) //find the index of min value a given region
 {
   int index=(x1+1)+(y1+1)*img_wd; //initialize to the centre index
-  for(int i=0;i<size;i++)
+  for(int x=x1;x<x2;x++)
   {
-    if(int(i%img_wd)>=x1 && int(i%img_wd)<=x2 && int(i/img_wd)>=y1 && int(i/img_wd)<=y2)//check if it is in the region of search
-    { 
-      if(array[i]<array[index])//if it is less than the current value
-        index=i;//update the index
+    for(int y=y1;y<y2;y++)
+    {
+      if(array[y*img_wd+x]<array[index])
+        index=y*img_wd+x;
     }
   }
   return index;
