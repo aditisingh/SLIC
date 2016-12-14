@@ -102,16 +102,16 @@ __global__ void RGB2LAB(pixel_RGB* img, int img_wd, int img_ht, pixel_XYZ* LAB_i
 
 int min_index(float* array, int size, int x1, int x2, int y1, int y2, int img_wd) //find the index of min value a given region
 {
-	int index=(x1+1)+(y1+1)*img_wd;//index to the center of 3x3 neighborhood
-  	for(int i=0;i<size;i++)
-  	{
-		if(int(i%img_wd)>=x1 && int(i%img_wd)<=x2 && int(i/img_wd)>=y1 && int(i/img_wd)<=y2)//check if it is in the region of search
-		{ 
-		  if(array[i]<array[index])//if it is less than the current value
-        index=i;//update the index
-		}
-	}
-	return index;
+  int index=(x1+1)+(y1+1)*img_wd; //initialize to the centre index
+  for(int x=x1;x<x2;x++)
+  {
+    for(int y=y1;y<y2;y++)
+    {
+      if(array[y*img_wd+x]<array[index])
+        index=y*img_wd+x;
+    }
+  }
+  return index;
 }
 
 __global__ void label_assignment(int* labels_gpu, pixel_XYZ* Pixel_LAB_gpu, point* centers_gpu, int S, int img_wd, int img_ht, int m, float* d_gpu, int k1)
@@ -210,7 +210,7 @@ int main(int argc, char* argv[])
 {
 	cudaEvent_t start, stop, begin, end;//to store time intervals of execution
 
-  	cout<<"Simple Linear Iterative Clustering: CPU IMPLEMENTATION"<<endl<<endl;
+  	cout<<"Simple Linear Iterative Clustering: GPU IMPLEMENTATION"<<endl<<endl;
 
   	//create event, now these can be used for record 
 	HANDLE_ERROR(cudaEventCreate(&start));
@@ -660,6 +660,6 @@ int main(int argc, char* argv[])
 	cudaEventElapsedTime(&milliseconds, begin, end);//get time for whole clustering
 
 	cout<<"Clustering done in "<<milliseconds<<" ms"<<endl;
-	
+
 	return 0;
 }
