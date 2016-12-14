@@ -449,34 +449,41 @@ int main(int argc, char* argv[])
 
 	// cout<<DimGrid1.x<<" "<<DimBlock1.x<<endl;
 
-	for(int i=0; i<k1;i++)
+	// float error=100;
+	int epoch=0;
+	while(error>1)
 	{
-    	centers_prev[i].x=centers_curr[i].x; //saving current centres, before any recalculation
-		centers_prev[i].y=centers_curr[i].y;
+		cout<<"Epoch = "<<epoch<<endl;
+		for(int i=0; i<k1;i++)
+		{
+	    	centers_prev[i].x=centers_curr[i].x; //saving current centres, before any recalculation
+			centers_prev[i].y=centers_curr[i].y;
+		}
+		HANDLE_ERROR(cudaMemcpy(labels_gpu, labels, N*sizeof(int), cudaMemcpyHostToDevice));
+		HANDLE_ERROR(cudaMemcpy(centers_gpu, centers_curr, k1*sizeof(point), cudaMemcpyHostToDevice));
+		// HANDLE_ERROR(cudaMemset(Pixel_LAB_gpu, (112.3,1,1), N*sizeof(pixel_XYZ)));
+		HANDLE_ERROR(cudaMemcpy(d_gpu, d , N*sizeof(float), cudaMemcpyHostToDevice));
+		// for(int i=0; i<N;i++)
+		// cout<<labels[i]<<endl;
+		// HANDLE_ERROR(cudaEventRecord(start));
+
+			
+		dim3 DimGrid1(1+(k1/thread_block1),1,1); 
+		dim3 DimBlock1(thread_block1,1,1);
+		cout<<DimGrid1.x<<" "<<DimBlock1.x<<endl;
+
+		label_assignment<<<DimGrid1,DimBlock1>>>(labels_gpu,Pixel_LAB_gpu,centers_gpu,S,img_wd, img_ht,m, d_gpu, k1);
+			
+		update_centres<<<DimGrid1,DimBlock1>>>(labels_gpu, centers_gpu, S, img_wd, img_ht, k1);
+
+		HANDLE_ERROR(cudaMemcpy(centers_curr, centers_gpu, k1*sizeof(point), cudaMemcpyDeviceToHost));
+		HANDLE_ERROR(cudaMemcpy(d, d_gpu, N*sizeof(float), cudaMemcpyDeviceToHost));
+		HANDLE_ERROR(cudaMemcpy(labels, labels_gpu, N*sizeof(int), cudaMemcpyDeviceToHost));
+		error= error_calculation(centers_curr, centers_prev,k1);
+
+		cout<<"MSE = "<<error<<endl;
+		epoch++;
 	}
-	HANDLE_ERROR(cudaMemcpy(labels_gpu, labels, N*sizeof(int), cudaMemcpyHostToDevice));
-	HANDLE_ERROR(cudaMemcpy(centers_gpu, centers_curr, k1*sizeof(point), cudaMemcpyHostToDevice));
-	// HANDLE_ERROR(cudaMemset(Pixel_LAB_gpu, (112.3,1,1), N*sizeof(pixel_XYZ)));
-	HANDLE_ERROR(cudaMemcpy(d_gpu, d , N*sizeof(float), cudaMemcpyHostToDevice));
-	// for(int i=0; i<N;i++)
-	// cout<<labels[i]<<endl;
-	// HANDLE_ERROR(cudaEventRecord(start));
-
-		
-	dim3 DimGrid1(1+(k1/thread_block1),1,1); 
-	dim3 DimBlock1(thread_block1,1,1);
-	cout<<DimGrid1.x<<" "<<DimBlock1.x<<endl;
-
-	label_assignment<<<DimGrid1,DimBlock1>>>(labels_gpu,Pixel_LAB_gpu,centers_gpu,S,img_wd, img_ht,m, d_gpu, k1);
-		
-	update_centres<<<DimGrid1,DimBlock1>>>(labels_gpu, centers_gpu, S, img_wd, img_ht, k1);
-
-	HANDLE_ERROR(cudaMemcpy(centers_curr, centers_gpu, k1*sizeof(point), cudaMemcpyDeviceToHost));
-	HANDLE_ERROR(cudaMemcpy(d, d_gpu, N*sizeof(float), cudaMemcpyDeviceToHost));
-	HANDLE_ERROR(cudaMemcpy(labels, labels_gpu, N*sizeof(int), cudaMemcpyDeviceToHost));
-	error= error_calculation(centers_curr, centers_prev,k1);
-
-	cout<<"MSE = "<<error<<endl;
 
 	// for(int i=0;i<N;i++)
 	// 	cout<<d[i]<<" "<<labels[i]<<endl;
@@ -569,15 +576,13 @@ int main(int argc, char* argv[])
 			}
 		}
 	}
-	  // high_resolution_clock::time_point t20 = high_resolution_clock::now();
-	  // time_span = duration_cast<duration<double>>(t20-t19);
+	  
 
 
 	cout<<"Output image prepared"<<endl;// in "<<time_span.count() <<" s"<<endl;
 
 
 	// //OUTPUT STORAGE
-	// high_resolution_clock::time_point t21=high_resolution_clock::now();
 	ofstream ofs;
 	ofs.open("output_gpu.ppm", ofstream::out);
 	ofs<<"P6\n"<<img_wd<<" "<<img_ht<<"\n"<<max_pixel_val<<"\n";
